@@ -1,0 +1,15 @@
+# Ignore Unity auto-generated files
+Library/
+Logs/
+Obj/
+Temp/
+Build/
+Builds/
+UserSettings/
+Packages/*
+!Packages/manifest.json
+!Packages/packages-lock.json
+.vs/
+.vscode/
+.DS_Store
+secrets.json
