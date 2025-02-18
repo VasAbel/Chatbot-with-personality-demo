@@ -309,6 +309,79 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &980426301
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -2379456496619114708, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: manager
+      value: 
+      objectReference: {fileID: 1909135228}
+    - target: {fileID: -2379456496619114708, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: platformID
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -2379456496619114708, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: speechRecognizer
+      value: 
+      objectReference: {fileID: 1909135228}
+    - target: {fileID: 580521036035182161, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: idx
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 944646318353149969, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_Name
+      value: NPC1 (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 18.64443
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -43.901436
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.99043137
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.13800634
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 15.865
+      objectReference: {fileID: 0}
+    - target: {fileID: 2694979058110870072, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
 --- !u!1 &1909135224
 GameObject:
   m_ObjectHideFlags: 0
@@ -382,7 +455,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   chatClient: {fileID: 1909135226}
-  fallbackClient: {fileID: 1909135226}
+  fallbackClient: {fileID: 1909135225}
 --- !u!114 &1909135229
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -415,6 +488,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -2379456496619114708, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
+      propertyPath: manager
+      value: 
+      objectReference: {fileID: 1909135228}
     - target: {fileID: -2379456496619114708, guid: faf5e389d06f3264298c405b8d1a508e, type: 3}
       propertyPath: speechRecognizer
       value: 
@@ -476,3 +553,4 @@ SceneRoots:
   - {fileID: 705507995}
   - {fileID: 1909135227}
   - {fileID: 1998984983}
+  - {fileID: 980426301}

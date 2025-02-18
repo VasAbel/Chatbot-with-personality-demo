@@ -8,7 +8,6 @@ using System;
 public abstract class ChatClient : MonoBehaviour
 {
     public abstract Task<string> SendChatMessageAsync(string messageContent);
-    public abstract Task<string> ForceNpcMention(string npcName);
     public abstract void StartNewConversation(string npcId);
 
 }

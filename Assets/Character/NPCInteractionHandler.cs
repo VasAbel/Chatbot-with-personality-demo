@@ -4,11 +4,11 @@ public class NPCInteractionHandler : MonoBehaviour
 {
     public int platformID;  
     public NPC npcData;  
-    public ConsoleChatbot speechRecognizer;  
+    public ConsoleChatbot manager;  
 
     void Start()
     {
-        if (speechRecognizer == null)
+        if (manager == null)
         {
             Debug.LogError("SpeechRecognizer not assigned!");
         }
@@ -22,7 +22,7 @@ public class NPCInteractionHandler : MonoBehaviour
         }
     }
 
-    private void TriggerNPCInteraction()
+    public void TriggerNPCInteraction()
     {
         if (npcData == null)
         {
@@ -30,13 +30,10 @@ public class NPCInteractionHandler : MonoBehaviour
             return;
         }
 
-        if (speechRecognizer != null)
+        if (manager != null)
         {
-            speechRecognizer.SetCurrentNpcGameObject(this.gameObject);
-            speechRecognizer.SendInitializationToServer(npcData.getDesc());
-
+            manager.SetCurrentNpcGameObject(this.gameObject);
             Debug.Log($"NPC {npcData.getName()} initialized.");
-            speechRecognizer.StartChat();
         }
     }
-}
+}   

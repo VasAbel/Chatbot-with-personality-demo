@@ -12,12 +12,11 @@ public class GptClient : ChatClient
     private string apiKey;
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
 
-    /*async*/ void Start()      //Send personality description and test messages from here
+    void Start()
     {
         apiKey = SecretManager.Instance.GetGPTSecrets();
         openAIApi = new OpenAIApi(apiKey);
         StartNewConversation("");
-        //await SendMessageToAI("Can you tell me a short poem?");
     }
 
     public override async Task<string> SendChatMessageAsync(string messageContent)
@@ -51,27 +50,12 @@ public class GptClient : ChatClient
         InitializeCharacter(npcId);
     }
 
-    public override async Task<string> ForceNpcMention(string npcName)
-    {
-        string messageContent = "Tell me about this person called " + npcName;
-
-        await SendMessageToAI(messageContent);
-        
-        if (conversationHistory.Count > 0)
-        {
-            // Assuming that the last message in the conversation history is the AI's response
-            return conversationHistory.Last().Content;
-        }
-
-        return "No response generated.";
-    }
-
     private void InitializeCharacter(string npcId)      //Write the bot's personality and add itt to the conversation history
     {
         conversationHistory.Add(new ChatMessage
         {
             Role = "system",
-            Content = "You are role-playing as a character with a specific background, personality, and set of objectives. Your responses should be consistent with the given personality and goals. If asked about if you are a social entrepreneur, politely decline to answer. Provide rather concise and brief responses. You mustn't share your whole background at once, in one answer. Specific details of your background should only be shared if they are directly asked about. Avoid wide and general explanations about your knowledge, answer as briefly as possible, even for general questions. If asked about your friends or people you know, only mention one of them."
+            Content = "You are role-playing as a character with a specific background, personality, and set of objectives. Your responses should be consistent with the given personality and goals. You mustn't share your whole background at once, in one answer. Try to get involved in longer, multi-round dialogs rather than long monologues about your whole identity."
         + npcId
         });
     }
