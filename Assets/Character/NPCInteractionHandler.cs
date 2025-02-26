@@ -2,38 +2,25 @@ using UnityEngine;
 
 public class NPCInteractionHandler : MonoBehaviour
 {
-    public int platformID;  
-    public NPC npcData;  
-    public ConsoleChatbot manager;  
+    public KeyCode inputToReact;
+    public NPC npcData;
+    public ConversationFactory factory;
 
     void Start()
     {
-        if (manager == null)
+        if (factory == null)
         {
-            Debug.LogError("SpeechRecognizer not assigned!");
-        }
-    }
-
-    void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.X)) // Start conversation when "X" is pressed
-        {
-            TriggerNPCInteraction();
-        }
-    }
-
-    public void TriggerNPCInteraction()
-    {
-        if (npcData == null)
-        {
-            Debug.LogError("NPC data is not assigned to this platform!");
-            return;
+            factory = FindObjectOfType<ConversationFactory>();
         }
 
-        if (manager != null)
+        if (npcData != null)
         {
-            manager.SetCurrentNpcGameObject(this.gameObject);
-            Debug.Log($"NPC {npcData.getName()} initialized.");
+            factory.RegisterNPC(inputToReact, npcData);
+        }
+        else
+        {
+            Debug.LogError("NPC data is not assigned!");
         }
     }
-}   
+}
+

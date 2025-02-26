@@ -1,97 +1,67 @@
 using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Threading;
 
 public class ConsoleChatbot : MonoBehaviour
 {
-    public ChatClient chatClient;
+    private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
     public LlamaClient fallbackClient;
-    private bool isConversationActive = false;
-    private List<GameObject> NPCsInConversation = new List<GameObject>();
-    private int currentSpeakerIndex = 0;
+    private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
 
-    public void SetCurrentNpcGameObject(GameObject npc)
+    public void StartChatSession(ConversationSession session)
     {
-        if(!NPCsInConversation.Contains(npc))
+        string conversationID = $"{session.GetNPC1().getName()}-{session.GetNPC2().getName()}";
+
+        if (activeConversations.ContainsKey(conversationID))
         {
-            NPCsInConversation.Add(npc);
+            Debug.LogWarning($"Conversation {conversationID} is already active.");
+            return;
         }
 
-        if(NPCsInConversation.Count == 2)
-        {
-            StartChat();
-        }
+        activeConversations[conversationID] = session; // Store session before starting
+        Debug.Log($"Conversation {conversationID} started.");
         
+        _ = RunConversation(session); // Start conversation asynchronously
     }
 
-    public async void StartChat()
+    private async Task RunConversation(ConversationSession session)
     {
-        isConversationActive = true;
-        Debug.Log("Chat started between NPCs");
-
         string initialPrompt = "Ask me about my day.";
-        await RunConversation(initialPrompt);
-    }
 
-    public async Task RunConversation(string initialPrompt)
-    {
-        while(isConversationActive)
+        while (session.IsActive)
         {
-            GameObject currentSpeaker = NPCsInConversation[currentSpeakerIndex];
-            NPC speakerData = currentSpeaker.GetComponent<NPC>();
+            session.PrepareForNextSpeaker(fallbackClient); // Ensure correct role switching
 
-            string response = await GetAgentResponse(speakerData, initialPrompt);
-            Debug.Log($"{speakerData.getName()}: {response}");
+            NPC currentSpeaker = session.GetCurrentSpeaker();
+            string response = await fallbackClient.SendChatMessageAsync(initialPrompt);
+            
+            if (cancellationTokenSource.Token.IsCancellationRequested)
+                break;
 
-            currentSpeakerIndex = (currentSpeakerIndex + 1) % NPCsInConversation.Count;
+            Debug.Log($"{currentSpeaker.getName()}: {response}");
+
+            session.UpdateMessageHistory(response);
             initialPrompt = response;
         }
+
+        Debug.Log("Conversation ended.");
     }
 
-    private async Task<string> GetAgentResponse(NPC speakerData, string userMessage)
+    private void OnApplicationQuit()
     {
-        fallbackClient.SetSystemMessage(speakerData.getDesc());
-        string response = await fallbackClient.SendChatMessageAsync(userMessage);
-        return response;
+        StopAllConversations();
     }
 
-    private async void SendMessageToAI(string message)
+    public void StopAllConversations()
     {
-        Debug.Log($"You: {message}");
+        Debug.Log("Stopping all conversations...");
 
-        // Send to both LLMs (to maintain history)
-        _ = fallbackClient.SendChatMessageAsync(message);
-        
-        // Try main LLM first
-        string response = await TryMainLLMWithFallback(message);
-        
-        Debug.Log($"NPC: {response}");
-    }
-
-    private async Task<string> TryMainLLMWithFallback(string message)
-    {
-        Task<string> mainTask = chatClient.SendChatMessageAsync(message);
-
-        try
+        foreach (var session in activeConversations.Values)
         {
-            return await mainTask; // If successful, return the response
+            session.IsActive = false; // This should break the while loop in RunConversation()
         }
-        catch
-        {
-            Debug.LogWarning("Main LLM failed. Switching to fallback.");
-            return await fallbackClient.SendChatMessageAsync(message);
-        }
-    }
 
-    
-
-    public async void SendInitializationToServer(string npcDescription)
-    {
-        Debug.Log($"Initializing conversation with NPC: {npcDescription}");
-
-        string initMessage = "init:" + npcDescription;
-        
-        await fallbackClient.SendChatMessageAsync(initMessage);
-        //await chatClient.SendChatMessageAsync(initMessage);
+        activeConversations.Clear();
     }
 }

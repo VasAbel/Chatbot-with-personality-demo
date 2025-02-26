@@ -66,9 +66,11 @@
   <ItemGroup>
     <Compile Include="Assets\Character\GptClient.cs" />
     <Compile Include="Assets\Character\LlamaAPI.cs" />
+    <Compile Include="Assets\Character\ConversationSession.cs" />
     <Compile Include="Assets\Character\LlamaClient.cs" />
     <Compile Include="Assets\Character\ConfigManager.cs" />
     <Compile Include="Assets\Character\NPC.cs" />
+    <Compile Include="Assets\Character\ConversationFactory.cs" />
     <Compile Include="Assets\Character\ConsoleChatbot.cs" />
     <Compile Include="Assets\Character\ChatClient.cs" />
     <Compile Include="Assets\Character\SecretManager.cs" />
