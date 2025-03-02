@@ -10,11 +10,13 @@ public class ConversationSession
     private List<string> messageHistory = new List<string>();
 
     public bool IsActive { get;  set; } = true;
+    public string conversationID { get; private set; }
 
     public ConversationSession(NPC npc1, NPC npc2)
     {
         this.npc1 = npc1;
         this.npc2 = npc2;
+        conversationID = $"{this.npc1.getName()}-{this.npc2.getName()}";
     }
 
     public NPC GetCurrentSpeaker()
@@ -31,7 +33,7 @@ public class ConversationSession
     public void PrepareForNextSpeaker(LlamaClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(newSpeaker.getDesc()); // Update the client's system message
+        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory); // Update the client's system message
     }
 
     public NPC GetNPC1()

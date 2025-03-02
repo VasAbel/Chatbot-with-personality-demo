@@ -2,50 +2,66 @@ using UnityEngine;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
+using System.IO;
 
 public class ConsoleChatbot : MonoBehaviour
 {
     private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
     public LlamaClient fallbackClient;
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
+    private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
 
     public void StartChatSession(ConversationSession session)
     {
-        string conversationID = $"{session.GetNPC1().getName()}-{session.GetNPC2().getName()}";
 
-        if (activeConversations.ContainsKey(conversationID))
+        if (activeConversations.ContainsKey(session.conversationID))
         {
-            Debug.LogWarning($"Conversation {conversationID} is already active.");
+            Debug.LogWarning($"Conversation {session.conversationID} is already active.");
             return;
         }
 
-        activeConversations[conversationID] = session; // Store session before starting
-        Debug.Log($"Conversation {conversationID} started.");
+        activeConversations[session.conversationID] = session; // Store session before starting
+        Debug.Log($"Conversation {session.conversationID} started.");
         
         _ = RunConversation(session); // Start conversation asynchronously
     }
 
     private async Task RunConversation(ConversationSession session)
     {
+        string logFilePath = Path.Combine(Application.persistentDataPath, $"{session.conversationID}.txt");
+        Debug.Log($"Log file saved at: {logFilePath}");
+
         string initialPrompt = "Ask me about my day.";
 
         while (session.IsActive)
         {
-            session.PrepareForNextSpeaker(fallbackClient); // Ensure correct role switching
+            await conversationSemaphore.WaitAsync(); // Ensure only one iteration modifies history at a time
+            try
+            {
+                session.PrepareForNextSpeaker(fallbackClient); // Set the next speaker **exclusively**
+                NPC currentSpeaker = session.GetCurrentSpeaker();
 
-            NPC currentSpeaker = session.GetCurrentSpeaker();
-            string response = await fallbackClient.SendChatMessageAsync(initialPrompt);
-            
-            if (cancellationTokenSource.Token.IsCancellationRequested)
-                break;
+                string response = await fallbackClient.SendChatMessageAsync(initialPrompt);
 
-            Debug.Log($"{currentSpeaker.getName()}: {response}");
+                if (cancellationTokenSource.Token.IsCancellationRequested)
+                    break;
 
-            session.UpdateMessageHistory(response);
-            initialPrompt = response;
+                string logEntry = $"{currentSpeaker.getName()}: {response}";
+                Debug.Log(logEntry);
+
+                File.AppendAllText(logFilePath, logEntry + "\n");
+
+                session.UpdateMessageHistory(initialPrompt); // Safely update history
+                initialPrompt = response;
+            }
+            finally
+            {
+                conversationSemaphore.Release(); // Allow the next iteration to modify history
+            }
         }
 
         Debug.Log("Conversation ended.");
+        File.AppendAllText(logFilePath, "Conversation ended.\n");
     }
 
     private void OnApplicationQuit()

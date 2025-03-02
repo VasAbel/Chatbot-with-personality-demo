@@ -5,12 +5,16 @@ using System.Threading.Tasks;
 using System.Linq;
 using Lodestars;
 using Assets.Game_Manager;
+using System.Threading;
+using System.Runtime.InteropServices;
 
 public class LlamaClient : ChatClient
 {
     private LlamaAPI llamaApi;
     private string apiKey = SecretManager.Instance.GetFallbackAPIKey();
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
+    private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+
     void Start()      
     {
         llamaApi = new LlamaAPI("", null);
@@ -19,27 +23,38 @@ public class LlamaClient : ChatClient
 
     public override async Task<string> SendChatMessageAsync(string messageContent)
     {
-        //Debug.Log("Sending message: " + messageContent);
-
-        if (messageContent.StartsWith("init:"))
+        await semaphore.WaitAsync();  // Ensure only one request runs at a time
+        try
         {
-            string npcDescription = messageContent.Substring(5);
-            StartNewConversation(npcDescription);
-            return "Conversation initialized with NPC.";
+            string first = conversationHistory.First().Content;
+            string last = conversationHistory.Last().Content;
+            string lastRole = conversationHistory.Last().Role;
+            Debug.Log("Sending message: " + messageContent +"\n With following history: " + first + "\n and last message: " + lastRole + "  " + last);
+
+            if (messageContent.StartsWith("init:"))
+            {
+                string npcDescription = messageContent.Substring(5);
+                StartNewConversation(npcDescription);
+                return "Conversation initialized with NPC.";
+            }
+
+            // Process the received message
+            await SendMessageToAI(messageContent);
+
+            if (conversationHistory.Count > 0)
+            {
+                // Assuming that the last message in the conversation history is the AI's response
+                return conversationHistory[conversationHistory.Count - 1].Content;
+            }
+             Debug.Log("Got answer with message" + messageContent);
+            return "No response generated.";
         }
-
-        // Process the received message
-        await SendMessageToAI(messageContent);
-
-        if (conversationHistory.Count > 0)
+        finally
         {
-            // Assuming that the last message in the conversation history is the AI's response
-            return conversationHistory[conversationHistory.Count - 1].Content;
+            semaphore.Release(); // Allow the next request to proceed
         }
-
-        return "No response generated.";
-
     }
+
     public override void StartNewConversation(string npcId)
     {
         // Reset conversation history for a new NPC interaction
@@ -49,7 +64,7 @@ public class LlamaClient : ChatClient
 
     private void InitializeCharacter(string npcId)      //Write the bot's personality and add itt to the conversation history
     {
-        conversationHistory.Add(new ChatMessage { Role = "system", Content = "You are role-playing as a character with a specific background, personality, and set of objectives. Your responses should be consistent with the given personality and goals. You mustn't share your whole background at once, in one answer. Try to get involved in longer, multi-round dialogs rather than long monologues about your whole identity."
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = "You are role-playing as a character with a specific background, personality, and set of objectives. You live in a small town where you often get engaged in everyday conversations with your fellow citizens. Your responses should be consistent with the given personality and goals. You mustn't share your whole background at once, in one answer. Try to get involved in longer, multi-round dialogs rather than long monologues about your whole identity. Inquire about the day and thoughts on given topics of your interlocutor, and share yours. Your personality is the following:"
          + npcId });
     }
 
@@ -80,18 +95,15 @@ public class LlamaClient : ChatClient
         }
     }
 
-    public void SetSystemMessage(string newDescription)
+    public void SetSystemMessage(string newDescription, List<string> sessionHistory)
     {
-        if (conversationHistory.Count > 0 && conversationHistory[0].Role == "system")
+        conversationHistory.Clear();
+
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription });
+
+        foreach (string message in sessionHistory)
         {
-            // Create a copy, modify it, and assign it back
-            ChatMessage updatedMessage = conversationHistory[0];
-            updatedMessage.Content = newDescription;
-            conversationHistory[0] = updatedMessage;
-        }
-        else
-        {
-            conversationHistory.Insert(0, new ChatMessage { Role = "system", Content = newDescription });
+            conversationHistory.Add(new ChatMessage { Role = (conversationHistory.Count % 2 == 1) ? "user" : "assistant", Content = message });
         }
 
         // Swap "user" and "assistant" roles in the history
@@ -100,12 +112,6 @@ public class LlamaClient : ChatClient
             ChatMessage modifiedMessage = conversationHistory[i];
             modifiedMessage.Role = modifiedMessage.Role == "user" ? "assistant" : "user";
             conversationHistory[i] = modifiedMessage; // Reassign the struct
-        }
-
-        // Remove the last message to prevent duplication
-        if (conversationHistory.Count > 1)
-        {
-            conversationHistory.RemoveAt(conversationHistory.Count - 1);
         }
     }
 
