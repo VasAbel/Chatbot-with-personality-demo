@@ -33,7 +33,7 @@ public class ConversationSession
     public void PrepareForNextSpeaker(LlamaClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory); // Update the client's system message
+        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory, newSpeaker, npc1); // Update the client's system message
     }
 
     public NPC GetNPC1()

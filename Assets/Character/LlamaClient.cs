@@ -95,23 +95,22 @@ public class LlamaClient : ChatClient
         }
     }
 
-    public void SetSystemMessage(string newDescription, List<string> sessionHistory)
+    public void SetSystemMessage(string newDescription, List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
     {
         conversationHistory.Clear();
-
         conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription });
 
-        foreach (string message in sessionHistory)
-        {
-            conversationHistory.Add(new ChatMessage { Role = (conversationHistory.Count % 2 == 1) ? "user" : "assistant", Content = message });
-        }
+        bool isNpc1Speaking = currentSpeaker == npc1; // Who is the current speaker?
 
-        // Swap "user" and "assistant" roles in the history
-        for (int i = 1; i < conversationHistory.Count; i++)
+        for (int i = 0; i < sessionHistory.Count; i++)
         {
-            ChatMessage modifiedMessage = conversationHistory[i];
-            modifiedMessage.Role = modifiedMessage.Role == "user" ? "assistant" : "user";
-            conversationHistory[i] = modifiedMessage; // Reassign the struct
+            bool messageFromNpc1 = i % 2 == 0; // Original sender order
+
+            conversationHistory.Add(new ChatMessage
+            {
+                Role = (messageFromNpc1 == isNpc1Speaking) ? "user" : "assistant",
+                Content = sessionHistory[i]
+            });
         }
     }
 
