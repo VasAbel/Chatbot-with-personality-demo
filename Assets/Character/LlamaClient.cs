@@ -4,16 +4,11 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using Lodestars;
-using Assets.Game_Manager;
-using System.Threading;
-using System.Runtime.InteropServices;
 
 public class LlamaClient : ChatClient
 {
     private LlamaAPI llamaApi;
-    private string apiKey = SecretManager.Instance.GetFallbackAPIKey();
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
-    private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
 
     void Start()      
     {
@@ -22,37 +17,30 @@ public class LlamaClient : ChatClient
     }
 
     public override async Task<string> SendChatMessageAsync(string messageContent)
-    {
-        await semaphore.WaitAsync();  // Ensure only one request runs at a time
-        try
+    {  
+        string first = conversationHistory.First().Content;
+        string last = conversationHistory.Last().Content;
+        string lastRole = conversationHistory.Last().Role;
+        Debug.Log("Sending message: " + messageContent +"\n With following history: " + first + "\n and last message: " + lastRole + "  " + last);
+
+        if (messageContent.StartsWith("init:"))
         {
-            string first = conversationHistory.First().Content;
-            string last = conversationHistory.Last().Content;
-            string lastRole = conversationHistory.Last().Role;
-            Debug.Log("Sending message: " + messageContent +"\n With following history: " + first + "\n and last message: " + lastRole + "  " + last);
-
-            if (messageContent.StartsWith("init:"))
-            {
-                string npcDescription = messageContent.Substring(5);
-                StartNewConversation(npcDescription);
-                return "Conversation initialized with NPC.";
-            }
-
-            // Process the received message
-            await SendMessageToAI(messageContent);
-
-            if (conversationHistory.Count > 0)
-            {
-                // Assuming that the last message in the conversation history is the AI's response
-                return conversationHistory[conversationHistory.Count - 1].Content;
-            }
-             Debug.Log("Got answer with message" + messageContent);
-            return "No response generated.";
+            string npcDescription = messageContent.Substring(5);
+            StartNewConversation(npcDescription);
+            return "Conversation initialized with NPC.";
         }
-        finally
+
+        // Process the received message
+        await SendMessageToAI(messageContent);
+
+        if (conversationHistory.Count > 0)
         {
-            semaphore.Release(); // Allow the next request to proceed
+            // Assuming that the last message in the conversation history is the AI's response
+            return conversationHistory[conversationHistory.Count - 1].Content;
         }
+            Debug.Log("Got answer with message" + messageContent);
+        return "No response generated.";
+
     }
 
     public override void StartNewConversation(string npcId)
@@ -79,9 +67,8 @@ public class LlamaClient : ChatClient
             Messages = conversationHistory,
             MaxTokens = 100
         };
-
+        
         var response = await llamaApi.CreateChatCompletion(request);
-
         if (response.Choices != null && response.Choices.Count > 0)
         {
             var aiResponse = response.Choices[0].Message.Content;

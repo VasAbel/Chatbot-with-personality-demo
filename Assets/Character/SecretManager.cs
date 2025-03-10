@@ -1,16 +1,13 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
 public class SecretManager
 {
-    [System.Serializable]
+    [Serializable]
     public class KeyChain
     {
         public string gptApiKey;
-        public string fallbackApiKey;
     }
 
     private static readonly Lazy<SecretManager> _instance =
@@ -37,10 +34,5 @@ public class SecretManager
     public string GetGPTSecrets()
     {
         return keyChain.gptApiKey;
-    }
-
-    public string GetFallbackAPIKey()
-    {
-        return keyChain.fallbackApiKey;
     }
 }

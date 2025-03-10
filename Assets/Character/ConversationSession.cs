@@ -1,7 +1,4 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
-using OpenAI;
 
 public class ConversationSession
 {
@@ -27,13 +24,13 @@ public class ConversationSession
     public void UpdateMessageHistory(string message)
     {
         messageHistory.Add(message);
-        currentSpeakerIndex = 1 - currentSpeakerIndex; // Switch speaker
+        currentSpeakerIndex = 1 - currentSpeakerIndex;
     }
 
     public void PrepareForNextSpeaker(LlamaClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory, newSpeaker, npc1); // Update the client's system message
+        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory, newSpeaker, npc1);
     }
 
     public NPC GetNPC1()

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -7,22 +6,20 @@ namespace Assets.Game_Manager
 {
     public class ConfigManager
     {
-        [System.Serializable]
+        [Serializable]
         public class Config
         {
-            public int numPlayers;
-            public int numConversationsInRound;
             public int timerLength;
             public string chatbotFallbackUrl;
         }
 
-        [System.Serializable]
+        [Serializable]
         public class CharacterDescriptions
         {
             public Description[] descriptions;
         }
 
-        [System.Serializable]
+        [Serializable]
         public class Description
         {
             public string name;
@@ -47,11 +44,8 @@ namespace Assets.Game_Manager
         }
 
         public static ConfigManager Instance => _instance.Value;
-
-        public int GetNumPlayers() => config.numPlayers;
-        public int GetNumConversationsInRound() => config.numConversationsInRound;
         public int GetTimerLength() => config.timerLength;
-        public string GetChatbotFallbackUrl() => config.chatbotFallbackUrl;
+        public string GetChatbotUrl() => config.chatbotFallbackUrl;
 
         public string GetCharacterDescription(int idx) => desc.descriptions[idx].description;
         public Description GetFullCharacterDescription(int idx) => desc.descriptions[idx];
