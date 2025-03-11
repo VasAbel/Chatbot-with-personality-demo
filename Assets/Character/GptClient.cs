@@ -43,7 +43,7 @@ public class GptClient : ChatClient
 
     }
 
-    public override void StartNewConversation(string npcId)
+    public void StartNewConversation(string npcId)
     {
         // Reset conversation history for a new NPC interaction
         ResetConversation();
