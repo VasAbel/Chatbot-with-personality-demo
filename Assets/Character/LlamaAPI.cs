@@ -39,7 +39,7 @@ namespace Lodestars
         }
 
         /// OpenAI API base path for requests.
-        private string BASE_PATH = ConfigManager.Instance.GetChatbotFallbackUrl();
+        private string BASE_PATH = ConfigManager.Instance.GetChatbotUrl();
 
         public LlamaAPI(string apiKey = null, string organization = null)
         {

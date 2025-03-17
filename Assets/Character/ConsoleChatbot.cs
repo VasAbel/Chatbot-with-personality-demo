@@ -7,7 +7,7 @@ using System.IO;
 public class ConsoleChatbot : MonoBehaviour
 {
     private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-    public LlamaClient fallbackClient;
+    public LlamaClient client;
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
 
@@ -20,10 +20,10 @@ public class ConsoleChatbot : MonoBehaviour
             return;
         }
 
-        activeConversations[session.conversationID] = session; // Store session before starting
+        activeConversations[session.conversationID] = session;
         Debug.Log($"Conversation {session.conversationID} started.");
         
-        _ = RunConversation(session); // Start conversation asynchronously
+        _ = RunConversation(session);
     }
 
     private async Task RunConversation(ConversationSession session)
@@ -31,17 +31,16 @@ public class ConsoleChatbot : MonoBehaviour
         string logFilePath = Path.Combine(Application.persistentDataPath, $"{session.conversationID}.txt");
         Debug.Log($"Log file saved at: {logFilePath}");
 
-        string initialPrompt = "Ask me about my day.";
+        string initialPrompt = "Start the conversation.";
 
         while (session.IsActive)
         {
-            await conversationSemaphore.WaitAsync(); // Ensure only one iteration modifies history at a time
+            await conversationSemaphore.WaitAsync();
             try
             {
-                session.PrepareForNextSpeaker(fallbackClient); // Set the next speaker **exclusively**
+                session.PrepareForNextSpeaker(client);
                 NPC currentSpeaker = session.GetCurrentSpeaker();
-
-                string response = await fallbackClient.SendChatMessageAsync(initialPrompt);
+                string response = await client.SendChatMessageAsync(initialPrompt);
 
                 if (cancellationTokenSource.Token.IsCancellationRequested)
                     break;
@@ -51,12 +50,12 @@ public class ConsoleChatbot : MonoBehaviour
 
                 File.AppendAllText(logFilePath, logEntry + "\n");
 
-                session.UpdateMessageHistory(initialPrompt); // Safely update history
+                session.UpdateMessageHistory(initialPrompt);
                 initialPrompt = response;
             }
             finally
             {
-                conversationSemaphore.Release(); // Allow the next iteration to modify history
+                conversationSemaphore.Release();
             }
         }
 
@@ -75,7 +74,7 @@ public class ConsoleChatbot : MonoBehaviour
 
         foreach (var session in activeConversations.Values)
         {
-            session.IsActive = false; // This should break the while loop in RunConversation()
+            session.IsActive = false;
         }
 
         activeConversations.Clear();

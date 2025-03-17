@@ -1,6 +1,4 @@
 {
-	"numPlayers": 4,
-	"numConversationsInRound": 2,
 	"timerLength": 300,
 	"chatbotFallbackUrl": "cg.iit.bme.hu:16786/v1"
 }

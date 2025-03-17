@@ -643,7 +643,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70efde66fb9d09b4bac6028a929e34c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fallbackClient: {fileID: 1909135225}
+  client: {fileID: 1909135225}
 --- !u!1001 &1998984983
 PrefabInstance:
   m_ObjectHideFlags: 0
