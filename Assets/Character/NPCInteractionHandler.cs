@@ -13,13 +13,21 @@ public class NPCInteractionHandler : MonoBehaviour
             factory = FindObjectOfType<ConversationFactory>();
         }
 
-        if (npcData != null)
+        if (npcData == null)
         {
-            factory.RegisterNPC(inputToReact, npcData);
+            Debug.LogError("NPC data is not assigned!");
+            return;
+        }
+
+        if (inputToReact == KeyCode.A)
+        {
+            factory.RegisterUserNPC(inputToReact, npcData);
+            Debug.Log($"{npcData.getName()} registered as user-NPC participant.");
         }
         else
         {
-            Debug.LogError("NPC data is not assigned!");
+            factory.RegisterNPC(inputToReact, npcData);
+            Debug.Log($"{npcData.getName()} registered as NPC-NPC participant.");
         }
     }
 }

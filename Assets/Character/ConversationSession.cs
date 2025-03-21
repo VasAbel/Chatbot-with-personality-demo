@@ -1,45 +1,15 @@
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
-public class ConversationSession
+public abstract class ConversationSession
 {
-    private NPC npc1, npc2;
-    private int currentSpeakerIndex = 0;
-    private List<string> messageHistory = new List<string>();
+    protected List<string> messageHistory = new List<string>();
+    public bool IsActive { get; set; } = true;
+    public string conversationID { get; protected set; }
 
-    public bool IsActive { get;  set; } = true;
-    public string conversationID { get; private set; }
-
-    public ConversationSession(NPC npc1, NPC npc2)
-    {
-        this.npc1 = npc1;
-        this.npc2 = npc2;
-        conversationID = $"{this.npc1.getName()}-{this.npc2.getName()}";
-    }
-
-    public NPC GetCurrentSpeaker()
-    {
-        return (currentSpeakerIndex == 0) ? npc1 : npc2;
-    }
-
-    public void UpdateMessageHistory(string message)
-    {
-        messageHistory.Add(message);
-        currentSpeakerIndex = 1 - currentSpeakerIndex;
-    }
-
-    public void PrepareForNextSpeaker(LlamaClient client)
-    {
-        NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(newSpeaker.getDesc(), messageHistory, newSpeaker, npc1);
-    }
-
-    public NPC GetNPC1()
-    {
-        return npc1;
-    }
-
-    public NPC GetNPC2()
-    {
-        return npc2;
-    }
+    public abstract NPC GetCurrentSpeaker(); // NPC talking this turn
+    public abstract void UpdateMessageHistory(string message);
+    public abstract void PrepareForNextSpeaker(LlamaClient client);
+    public abstract bool IsUserConversation();
 }
