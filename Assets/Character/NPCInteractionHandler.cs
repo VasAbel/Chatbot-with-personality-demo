@@ -18,12 +18,6 @@ public class NPCInteractionHandler : MonoBehaviour
             Debug.LogError("NPC data is not assigned!");
             return;
         }
-
-        if (inputToReact == KeyCode.A)
-        {
-            factory.RegisterUserNPC(inputToReact, npcData);
-            Debug.Log($"{npcData.getName()} registered as user-NPC participant.");
-        }
         else
         {
             factory.RegisterNPC(inputToReact, npcData);

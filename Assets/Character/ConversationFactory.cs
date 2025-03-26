@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class ConversationFactory : MonoBehaviour
 {
     public ConsoleChatbot chatbotManager;
     private Dictionary<KeyCode, List<NPC>> keyToNPCs = new Dictionary<KeyCode, List<NPC>>();
-    private Dictionary<KeyCode, NPC> keyToUserNPC = new Dictionary<KeyCode, NPC>();
+    private NPC npcToUser;
 
     public void RegisterNPC(KeyCode key, NPC npc)
     {
@@ -20,12 +21,10 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
-    public void RegisterUserNPC(KeyCode key, NPC npc)
+    public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox)
     {
-        if (!keyToUserNPC.ContainsKey(key))
-        {
-            keyToUserNPC[key] = npc;
-        }
+            npcToUser = npc;  
+            TryStartUserConversation(dialogueBox);
     }
 
     void Update()
@@ -35,14 +34,6 @@ public class ConversationFactory : MonoBehaviour
             if (Input.GetKeyDown(entry.Key))
             {
                 TryStartNPCConversation(entry.Key);
-            }
-        }
-
-        foreach (var entry in keyToUserNPC)
-        {
-            if (Input.GetKeyDown(entry.Key))
-            {
-                TryStartUserConversation(entry.Key);
             }
         }
     }
@@ -65,13 +56,14 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
-    private void TryStartUserConversation(KeyCode key)
+    private void TryStartUserConversation(TMP_InputField dialogueBox)
     {
-        if (keyToUserNPC.TryGetValue(key, out NPC npc))
+        if (npcToUser != null)
         {
-            Debug.Log($"Starting user conversation with {npc.getName()}");
+            Debug.Log($"Starting user conversation with {npcToUser.getName()}");
 
-            ConversationSession newSession = new UserConversationSession(npc);
+            ConversationSession newSession = new UserConversationSession(npcToUser);
+            chatbotManager.userInputField = dialogueBox;
             chatbotManager.StartChatSession(newSession);
         }
         else

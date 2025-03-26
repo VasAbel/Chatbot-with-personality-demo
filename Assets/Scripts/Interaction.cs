@@ -1,24 +1,28 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Interaction : MonoBehaviour
 {
     public GameObject interactionText;
-    public GameObject dialogueBox;
+    public TMP_InputField dialogueBox;
+    public ConversationFactory factory;
     private bool isNearby = false;
+    public NPC npcComponent;
 
     void Start()
     {
         interactionText.SetActive(false);
-        dialogueBox.SetActive(false);
+        dialogueBox.gameObject.SetActive(false);
     }
 
     void Update()
     {
         if(isNearby && Input.GetKeyUp(KeyCode.F))
         {
-            dialogueBox.SetActive(!dialogueBox.activeSelf);
+            dialogueBox.gameObject.SetActive(!dialogueBox.gameObject.activeSelf);
         }
     }
 
@@ -28,6 +32,7 @@ public class Interaction : MonoBehaviour
         {
             interactionText.SetActive(true);
             isNearby = true;
+            factory.RegisterUserNPC(npcComponent, dialogueBox);
         }
     }
 
@@ -37,7 +42,7 @@ public class Interaction : MonoBehaviour
         {
             interactionText.SetActive(false);
             isNearby = false;
-            dialogueBox.SetActive(false);
+            dialogueBox.gameObject.SetActive(false);
         }
     }
 }

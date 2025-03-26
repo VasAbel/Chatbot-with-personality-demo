@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.IO;
 using UnityEngine.UI;
+using TMPro;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -11,12 +12,7 @@ public class ConsoleChatbot : MonoBehaviour
     public LlamaClient client;
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
-    public InputField userInputField;
-
-    private void Start()
-    {
-        userInputField.gameObject.SetActive(false);
-    }
+    public TMP_InputField userInputField;
 
     public void StartChatSession(ConversationSession session)
     {
@@ -79,7 +75,7 @@ public class ConsoleChatbot : MonoBehaviour
                 Debug.Log("User's turn. Please type a message:");
                 string userInput = await WaitForUserInput();
 
-                // 🔴 Re-acquire semaphore AFTER input is received
+                
                 await conversationSemaphore.WaitAsync();
 
                 session.PrepareForNextSpeaker(client);
@@ -107,6 +103,8 @@ public class ConsoleChatbot : MonoBehaviour
         File.AppendAllText(logFilePath, "Conversation ended.\n");
     }
 
+
+
     private async Task<string> WaitForUserInput()
     {
         userInputField.gameObject.SetActive(true);
@@ -117,18 +115,20 @@ public class ConsoleChatbot : MonoBehaviour
 
         void OnSubmit(string text)
         {
-            if (Input.GetKeyDown(KeyCode.Return) && !string.IsNullOrWhiteSpace(text))
+            // TMP_InputField's onSubmit doesn't rely on checking Enter manually
+            if (!string.IsNullOrWhiteSpace(text))
             {
                 userInputField.gameObject.SetActive(false);
-                userInputField.onEndEdit.RemoveListener(OnSubmit);
+                userInputField.onSubmit.RemoveListener(OnSubmit);
                 tcs.SetResult(text);
             }
         }
 
-        userInputField.onEndEdit.AddListener(OnSubmit);
+        userInputField.onSubmit.AddListener(OnSubmit);
 
         return await tcs.Task;
     }
+
 
     private void OnApplicationQuit()
     {
