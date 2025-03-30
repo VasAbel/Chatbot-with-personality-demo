@@ -5,6 +5,7 @@ public class Npc : MonoBehaviour
     public float speed = 0.000001f;
     private Rigidbody rb;
     public Vector3 movement;
+    public bool canMove = true;
 
     void Start()
     {
@@ -13,7 +14,14 @@ public class Npc : MonoBehaviour
 
     void Update()
     {
-        movement = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical")).normalized;
+        if (canMove)
+        {
+            movement = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical")).normalized;
+        }
+        else
+        {
+            movement = Vector3.zero;
+        }
     }
 
     void FixedUpdate()

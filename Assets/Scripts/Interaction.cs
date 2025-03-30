@@ -11,6 +11,7 @@ public class Interaction : MonoBehaviour
     public ConversationFactory factory;
     private bool isNearby = false;
     public NPC npcComponent;
+    public Npc npcMovement;
 
     void Start()
     {
@@ -20,9 +21,22 @@ public class Interaction : MonoBehaviour
 
     void Update()
     {
-        if(isNearby && Input.GetKeyUp(KeyCode.F))
+        if (dialogueBox.gameObject.activeSelf)
         {
-            dialogueBox.gameObject.SetActive(!dialogueBox.gameObject.activeSelf);
+            npcMovement.canMove = false; 
+
+            if (Input.GetKeyUp(KeyCode.Tab)) 
+            {
+                dialogueBox.gameObject.SetActive(false);
+                npcMovement.canMove = true;
+                interactionText.SetActive(isNearby); 
+            }
+        }
+        else if (isNearby && Input.GetKeyUp(KeyCode.F)) 
+        {
+            dialogueBox.gameObject.SetActive(true);
+            npcMovement.canMove = false; 
+            interactionText.SetActive(false); 
         }
     }
 
@@ -43,6 +57,7 @@ public class Interaction : MonoBehaviour
             interactionText.SetActive(false);
             isNearby = false;
             dialogueBox.gameObject.SetActive(false);
+            npcMovement.canMove = true;
         }
     }
 }
