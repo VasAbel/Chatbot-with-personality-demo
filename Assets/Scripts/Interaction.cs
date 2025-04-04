@@ -30,6 +30,7 @@ public class Interaction : MonoBehaviour
                 dialogueBox.gameObject.SetActive(false);
                 npcMovement.canMove = true;
                 interactionText.SetActive(isNearby); 
+                factory.StopUserConversation(npcComponent);
             }
         }
         else if (isNearby && Input.GetKeyUp(KeyCode.F)) 
@@ -37,6 +38,7 @@ public class Interaction : MonoBehaviour
             dialogueBox.gameObject.SetActive(true);
             npcMovement.canMove = false; 
             interactionText.SetActive(false); 
+            factory.RegisterUserNPC(npcComponent, dialogueBox);
         }
     }
 
@@ -46,7 +48,6 @@ public class Interaction : MonoBehaviour
         {
             interactionText.SetActive(true);
             isNearby = true;
-            factory.RegisterUserNPC(npcComponent, dialogueBox);
         }
     }
 

@@ -8,7 +8,6 @@ using TMPro;
 
 public class ConsoleChatbot : MonoBehaviour
 {
-    private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
     public LlamaClient client;
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
@@ -31,6 +30,8 @@ public class ConsoleChatbot : MonoBehaviour
 
     private async Task RunConversation(ConversationSession session)
     {
+        CancellationToken token = session.CancellationTokenSource.Token;
+        
         string logFilePath = Path.Combine(Application.persistentDataPath, $"{session.conversationID}.txt");
         Debug.Log($"Log file saved at: {logFilePath}");
 
@@ -53,7 +54,7 @@ public class ConsoleChatbot : MonoBehaviour
                 // NPC-NPC or NPC responding in a user conversation
                     string response = await client.SendChatMessageAsync(initialPrompt);
 
-                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                    if (session.CancellationTokenSource.Token.IsCancellationRequested)
                         break;
 
                     string logEntry = $"{currentSpeaker.getName()}: {response}";
@@ -73,7 +74,8 @@ public class ConsoleChatbot : MonoBehaviour
             {
 
                 Debug.Log("User's turn. Please type a message:");
-                string userInput = await WaitForUserInput();
+                string userInput = await WaitForUserInput(token);
+                if (string.IsNullOrEmpty(userInput)) break;
 
                 
                 await conversationSemaphore.WaitAsync();
@@ -105,7 +107,7 @@ public class ConsoleChatbot : MonoBehaviour
 
 
 
-    private async Task<string> WaitForUserInput()
+    private async Task<string> WaitForUserInput(CancellationToken token)
     {
         userInputField.gameObject.SetActive(true);
         userInputField.text = "";
@@ -115,7 +117,6 @@ public class ConsoleChatbot : MonoBehaviour
 
         void OnSubmit(string text)
         {
-            // TMP_InputField's onSubmit doesn't rely on checking Enter manually
             if (!string.IsNullOrWhiteSpace(text))
             {
                 userInputField.gameObject.SetActive(false);
@@ -126,7 +127,34 @@ public class ConsoleChatbot : MonoBehaviour
 
         userInputField.onSubmit.AddListener(OnSubmit);
 
-        return await tcs.Task;
+        await using (token.Register(() =>
+        {
+            userInputField.onSubmit.RemoveListener(OnSubmit);
+            userInputField.gameObject.SetActive(false);
+            tcs.TrySetCanceled();
+        }))
+        {
+            try
+            {
+                return await tcs.Task;
+            }
+            catch (TaskCanceledException)
+            {
+                return null;
+            }
+        }
+    }
+
+    public void StopSession(string conversationID)
+    {
+        if (activeConversations.TryGetValue(conversationID, out var session))
+        {
+            session.CancellationTokenSource.Cancel();
+            session.IsActive = false;
+
+            Debug.Log($"Conversation {conversationID} was stopped by user.");
+            activeConversations.Remove(conversationID);
+        }
     }
 
 
@@ -138,12 +166,14 @@ public class ConsoleChatbot : MonoBehaviour
     public void StopAllConversations()
     {
         Debug.Log("Stopping all conversations...");
-
         foreach (var session in activeConversations.Values)
         {
             session.IsActive = false;
+            session.CancellationTokenSource.Cancel(); // ←✅ important!
         }
 
         activeConversations.Clear();
+
+        Debug.Log("Conversations have ended.");
     }
 }

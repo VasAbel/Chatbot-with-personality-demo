@@ -38,6 +38,12 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
+    public void StopUserConversation(NPC npc)
+    {
+        string convoID = $"User-{npc.getName()}";
+        chatbotManager.StopSession(convoID);
+    }
+
     private void TryStartNPCConversation(KeyCode key)
     {
         if (keyToNPCs.TryGetValue(key, out List<NPC> npcs) && npcs.Count >= 2)
