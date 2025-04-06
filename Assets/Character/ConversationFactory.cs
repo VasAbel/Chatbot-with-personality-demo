@@ -5,20 +5,26 @@ using UnityEngine;
 public class ConversationFactory : MonoBehaviour
 {
     public ConsoleChatbot chatbotManager;
-    private Dictionary<KeyCode, List<NPC>> keyToNPCs = new Dictionary<KeyCode, List<NPC>>();
+    private Dictionary<string, List<NPC>> keyToNPCs = new Dictionary<string, List<NPC>>();
     private NPC npcToUser;
 
-    public void RegisterNPC(KeyCode key, NPC npc)
+    public void RegisterNPC(string key, List<NPC> npcs)
     {
         if (!keyToNPCs.ContainsKey(key))
         {
             keyToNPCs[key] = new List<NPC>();
         }
 
-        if (!keyToNPCs[key].Contains(npc))
+        if (!keyToNPCs[key].Contains(npcs[0]))
         {
-            keyToNPCs[key].Add(npc);
+            keyToNPCs[key].Add(npcs[0]);
         }
+
+        if (!keyToNPCs[key].Contains(npcs[1]))
+        {
+            keyToNPCs[key].Add(npcs[1]);
+        }
+        TryStartNPCConversation(key);
     }
 
     public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox)
@@ -27,7 +33,7 @@ public class ConversationFactory : MonoBehaviour
             TryStartUserConversation(dialogueBox);
     }
 
-    void Update()
+    /*void Update()
     {
         foreach (var entry in keyToNPCs)
         {
@@ -36,7 +42,7 @@ public class ConversationFactory : MonoBehaviour
                 TryStartNPCConversation(entry.Key);
             }
         }
-    }
+    }*/
 
     public void StopUserConversation(NPC npc)
     {
@@ -44,7 +50,7 @@ public class ConversationFactory : MonoBehaviour
         chatbotManager.StopSession(convoID);
     }
 
-    private void TryStartNPCConversation(KeyCode key)
+    private void TryStartNPCConversation(string key)
     {
         if (keyToNPCs.TryGetValue(key, out List<NPC> npcs) && npcs.Count >= 2)
         {

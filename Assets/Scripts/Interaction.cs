@@ -10,8 +10,9 @@ public class Interaction : MonoBehaviour
     public TMP_InputField dialogueBox;
     public ConversationFactory factory;
     private bool isNearby = false;
+    private bool isTalkingToPlayer = false;
     public NPC npcComponent;
-    public Npc npcMovement;
+    public Movement npcMovement;
 
     void Start()
     {
@@ -21,7 +22,7 @@ public class Interaction : MonoBehaviour
 
     void Update()
     {
-        if (dialogueBox.gameObject.activeSelf)
+        if (dialogueBox.gameObject.activeSelf && isTalkingToPlayer)
         {
             npcMovement.canMove = false; 
 
@@ -46,8 +47,21 @@ public class Interaction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            isTalkingToPlayer = true;
             interactionText.SetActive(true);
             isNearby = true;
+        }
+        else if(other.CompareTag("NPC_Object"))
+        {
+            GameObject otherNPC = npcMovement.gameObject;
+            NPC otherNPCComponent = otherNPC.GetComponent<NPC>();
+            string sessionKey = npcComponent.getName() + "-" + otherNPCComponent.getName();
+            List<NPC> npcs = new List<NPC>
+            {
+                npcComponent,
+                otherNPCComponent
+            };
+            factory.RegisterNPC(sessionKey, npcs);
         }
     }
 
@@ -55,6 +69,7 @@ public class Interaction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
+            isTalkingToPlayer = false;
             interactionText.SetActive(false);
             isNearby = false;
             dialogueBox.gameObject.SetActive(false);

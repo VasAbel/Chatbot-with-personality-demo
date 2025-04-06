@@ -71,14 +71,15 @@
     <Compile Include="Assets\Character\ConfigManager.cs" />
     <Compile Include="Assets\Character\NPC.cs" />
     <Compile Include="Assets\Character\UserConversationSession.cs" />
-    <Compile Include="Assets\Scripts\Npc.cs" />
+    <Compile Include="Assets\Scripts\Movement.cs" />
     <Compile Include="Assets\Scripts\Interaction.cs" />
     <Compile Include="Assets\Character\ConversationFactory.cs" />
     <Compile Include="Assets\Character\ConsoleChatbot.cs" />
     <Compile Include="Assets\Character\NPCConversationSession.cs" />
     <Compile Include="Assets\Character\ChatClient.cs" />
     <Compile Include="Assets\Character\SecretManager.cs" />
-    <Compile Include="Assets\Character\NPCInteractionHandler.cs" />
+    <Compile Include="Assets\Scripts\PlayerMovement.cs" />
+    <Compile Include="Assets\Scripts\NpcMovement.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
