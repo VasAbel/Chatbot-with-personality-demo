@@ -64,22 +64,22 @@
     <Analyzer Include="C:\Program Files\Unity\Hub\Editor\2022.3.20f1\Editor\Data\Tools\Unity.SourceGenerators\Unity.Properties.SourceGenerator.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Character\GptClient.cs" />
-    <Compile Include="Assets\Character\LlamaAPI.cs" />
-    <Compile Include="Assets\Character\ConversationSession.cs" />
-    <Compile Include="Assets\Character\LlamaClient.cs" />
-    <Compile Include="Assets\Character\ConfigManager.cs" />
-    <Compile Include="Assets\Character\NPC.cs" />
-    <Compile Include="Assets\Character\UserConversationSession.cs" />
-    <Compile Include="Assets\Scripts\Movement.cs" />
-    <Compile Include="Assets\Scripts\Interaction.cs" />
-    <Compile Include="Assets\Character\ConversationFactory.cs" />
-    <Compile Include="Assets\Character\ConsoleChatbot.cs" />
-    <Compile Include="Assets\Character\NPCConversationSession.cs" />
-    <Compile Include="Assets\Character\ChatClient.cs" />
-    <Compile Include="Assets\Character\SecretManager.cs" />
-    <Compile Include="Assets\Scripts\PlayerMovement.cs" />
-    <Compile Include="Assets\Scripts\NpcMovement.cs" />
+    <Compile Include="Assets\Scripts\LLM\ChatClient.cs" />
+    <Compile Include="Assets\Scripts\Session\NPCConversationSession.cs" />
+    <Compile Include="Assets\Scripts\LLM\LlamaAPI.cs" />
+    <Compile Include="Assets\Scripts\LLM\GptClient.cs" />
+    <Compile Include="Assets\Scripts\Session\UserConversationSession.cs" />
+    <Compile Include="Assets\Scripts\Session\ConversationFactory.cs" />
+    <Compile Include="Assets\Scripts\Characters\NPC.cs" />
+    <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
+    <Compile Include="Assets\Scripts\Characters\NpcMovement.cs" />
+    <Compile Include="Assets\Scripts\Session\ConversationSession.cs" />
+    <Compile Include="Assets\Scripts\Config\ConfigManager.cs" />
+    <Compile Include="Assets\Scripts\Session\ConsoleChatbot.cs" />
+    <Compile Include="Assets\Scripts\Config\SecretManager.cs" />
+    <Compile Include="Assets\Scripts\Characters\PlayerMovement.cs" />
+    <Compile Include="Assets\Scripts\Characters\Movement.cs" />
+    <Compile Include="Assets\Scripts\LLM\LlamaClient.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

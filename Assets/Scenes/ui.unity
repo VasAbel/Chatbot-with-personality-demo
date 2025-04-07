@@ -555,7 +555,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  interactionText: {fileID: 0}
+  interactionText: {fileID: 290957118}
   dialogueBox: {fileID: 1767314832}
   factory: {fileID: 1065605786}
   npcComponent: {fileID: 231953366}
