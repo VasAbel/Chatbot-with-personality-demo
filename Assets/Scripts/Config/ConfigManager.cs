@@ -34,11 +34,11 @@ namespace Assets.Game_Manager
 
         private ConfigManager()
         {
-            var c_path = "Assets/Character/config.json";
+            var c_path = "Assets/Config Files/config.json";
             var c_json = File.ReadAllText(c_path);
             config = JsonUtility.FromJson<Config>(c_json);
 
-            var d_path = "Assets/Character/character_descriptions.json";
+            var d_path = "Assets/Config Files/character_descriptions.json";
             var d_json = File.ReadAllText(d_path);
             desc = JsonUtility.FromJson<CharacterDescriptions>(d_json);
         }

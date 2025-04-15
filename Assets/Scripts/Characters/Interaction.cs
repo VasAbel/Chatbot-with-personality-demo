@@ -53,6 +53,7 @@ public class Interaction : MonoBehaviour
         }
         else if(other.CompareTag("NPC_Object"))
         {
+            npcMovement.canMove = false;
             GameObject otherNPC = npcMovement.gameObject;
             NPC otherNPCComponent = otherNPC.GetComponent<NPC>();
             string sessionKey = npcComponent.getName() + "-" + otherNPCComponent.getName();

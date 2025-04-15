@@ -17,7 +17,7 @@ public class SecretManager
 
     private SecretManager()
     {
-        var path = "Assets/Character/secrets.json";
+        var path = "Assets/Config Files/secrets.json";
         var json = File.ReadAllText(path);
 
         keyChain = JsonUtility.FromJson<KeyChain>(json);
