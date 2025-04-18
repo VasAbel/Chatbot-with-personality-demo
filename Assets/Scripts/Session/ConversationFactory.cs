@@ -29,8 +29,14 @@ public class ConversationFactory : MonoBehaviour
 
     public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox)
     {
-            npcToUser = npc;  
-            TryStartUserConversation(dialogueBox);
+        if (npcToUser != null)
+        {
+            Debug.Log("A user conversation is already active. Ignoring new NPC registration.");
+            return;
+        }
+
+        npcToUser = npc;
+        TryStartUserConversation(dialogueBox);
     }
 
     /*void Update()
@@ -48,6 +54,11 @@ public class ConversationFactory : MonoBehaviour
     {
         string convoID = $"User-{npc.getName()}";
         chatbotManager.StopSession(convoID);
+
+        if (npcToUser == npc)
+        {
+            npcToUser = null;
+        }
     }
 
     private void TryStartNPCConversation(string key)
@@ -82,6 +93,11 @@ public class ConversationFactory : MonoBehaviour
         {
             Debug.LogWarning("No NPC assigned for user conversation with this key.");
         }
+    }
+
+    public NPC GetNpcToUser()
+    {
+        return npcToUser;
     }
 }
 

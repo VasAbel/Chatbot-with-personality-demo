@@ -6,39 +6,97 @@ using UnityEngine;
 
 public class Interaction : MonoBehaviour
 {
-    public GameObject interactionText;
-    public TMP_InputField dialogueBox;
-    public ConversationFactory factory;
-    private bool isNearby = false;
-    private bool isTalkingToPlayer = false;
-    public NPC npcComponent;
-    public Movement npcMovement;
+    private GameObject interactionText = null;
+    private TMP_InputField dialogueBox = null;
+    private ConversationFactory factory = null;
+    private bool isPlayerNearby = false;
+    private NPC npcComponent = null;
+    private NpcMovement npcMovement = null;
+    private PlayerMovement playerMovement= null;
 
     void Start()
     {
-        interactionText.SetActive(false);
-        dialogueBox.gameObject.SetActive(false);
+        GameObject canvas = GameObject.Find("Canvas");
+
+        if (canvas != null)
+        {
+            if (interactionText == null)
+            {
+                interactionText = FindChildByNameIncludingInactive(canvas.transform, "PressF");
+            }
+
+            if (dialogueBox == null)
+            {
+                dialogueBox = canvas.GetComponentInChildren<TMP_InputField>(true);
+            }
+        }
+        else
+        {
+            Debug.LogError("Canvas not found in the scene.");
+        }
+
+        if (interactionText != null)
+            interactionText.SetActive(false);
+        else
+            Debug.LogWarning("PressF text not found (even when inactive).");
+
+        if (dialogueBox != null)
+            dialogueBox.gameObject.SetActive(false);
+        else
+            Debug.LogWarning("Dialogue box (TMP_InputField) not found (even when inactive).");
+
+        if (factory == null)
+        {
+            GameObject factoryObject = GameObject.Find("ConvSessFactory");
+            if (factoryObject != null)
+            {
+                factory = factoryObject.GetComponent<ConversationFactory>();
+            }
+            else
+            {
+                Debug.LogError("ConversationFactory object 'ConvsessFactory' not found in the scene.");
+            }
+        }
+
+        npcComponent = GetComponent<NPC>();
+        npcMovement = GetComponent<NpcMovement>();
+
+        if (npcComponent == null || npcMovement == null)
+        {
+            Debug.LogError("Missing required components on NPC GameObject.");
+        }
+
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
+        {
+            playerMovement = player.GetComponent<PlayerMovement>();
+        }
     }
 
     void Update()
     {
-        if (dialogueBox.gameObject.activeSelf && isTalkingToPlayer)
+        bool isActiveUserSession = factory.GetNpcToUser() == npcComponent;
+        if (isActiveUserSession)
         {
-            npcMovement.canMove = false; 
-
             if (Input.GetKeyUp(KeyCode.Tab)) 
             {
                 dialogueBox.gameObject.SetActive(false);
+                playerMovement.canMove = true;
                 npcMovement.canMove = true;
-                interactionText.SetActive(isNearby); 
+                interactionText.SetActive(isPlayerNearby); 
+
+                npcComponent.isInConversation = false;
                 factory.StopUserConversation(npcComponent);
             }
         }
-        else if (isNearby && Input.GetKeyUp(KeyCode.F)) 
+        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation) 
         {
             dialogueBox.gameObject.SetActive(true);
-            npcMovement.canMove = false; 
+            playerMovement.canMove = false; 
+            npcMovement.canMove = false;
             interactionText.SetActive(false); 
+
+            npcComponent.isInConversation = true;
             factory.RegisterUserNPC(npcComponent, dialogueBox);
         }
     }
@@ -47,21 +105,41 @@ public class Interaction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            isTalkingToPlayer = true;
             interactionText.SetActive(true);
-            isNearby = true;
+            isPlayerNearby = true;
         }
         else if(other.CompareTag("NPC_Object"))
         {
+            NPC otherNPCComponent = other.gameObject.GetComponent<NPC>();
+
+            if (npcComponent.isInConversation || otherNPCComponent.isInConversation)
+                return;
+            
+            npcComponent.isInConversation = true;
+            otherNPCComponent.isInConversation = true;
+
+            NpcMovement otherNpcMovement = other.gameObject.GetComponent<NpcMovement>();
             npcMovement.canMove = false;
-            GameObject otherNPC = npcMovement.gameObject;
-            NPC otherNPCComponent = otherNPC.GetComponent<NPC>();
-            string sessionKey = npcComponent.getName() + "-" + otherNPCComponent.getName();
-            List<NPC> npcs = new List<NPC>
+            otherNpcMovement.canMove = false;
+            
+            List<NPC> npcs;
+            if(npcComponent.idx < otherNPCComponent.idx)
             {
-                npcComponent,
-                otherNPCComponent
-            };
+                npcs = new List<NPC>
+                {
+                    npcComponent,
+                    otherNPCComponent
+                };
+            }
+            else
+            {
+                npcs = new List<NPC>
+                {
+                    otherNPCComponent,
+                    npcComponent
+                };
+            }
+            string sessionKey = npcs[0].getName() + "-" + npcs[1].getName();
             factory.RegisterNPC(sessionKey, npcs);
         }
     }
@@ -70,11 +148,18 @@ public class Interaction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            isTalkingToPlayer = false;
             interactionText.SetActive(false);
-            isNearby = false;
-            dialogueBox.gameObject.SetActive(false);
-            npcMovement.canMove = true;
+            isPlayerNearby = false;
         }
+    }
+
+    private GameObject FindChildByNameIncludingInactive(Transform parent, string name)
+    {
+        foreach (Transform child in parent.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == name)
+                return child.gameObject;
+        }
+        return null;
     }
 }

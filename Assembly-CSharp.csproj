@@ -69,6 +69,7 @@
     <Compile Include="Assets\Scripts\LLM\LlamaAPI.cs" />
     <Compile Include="Assets\Scripts\LLM\GptClient.cs" />
     <Compile Include="Assets\Scripts\Session\UserConversationSession.cs" />
+    <Compile Include="Assets\Scripts\PlaceReference.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationFactory.cs" />
     <Compile Include="Assets\Scripts\Characters\NPC.cs" />
     <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
