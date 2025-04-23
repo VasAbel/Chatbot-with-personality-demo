@@ -62,6 +62,12 @@ public class NPC : MonoBehaviour
                 Debug.LogWarning($"No schedule defined for NPC: {npcName}");
                 break;
         }
+
+        NPCGlobalTimer timer = FindObjectOfType<NPCGlobalTimer>();
+        if (timer != null)
+        {
+            timer.RegisterNPC(this);
+        }
     }
 
     public string GetCurrentPlace(int hour)
@@ -69,5 +75,13 @@ public class NPC : MonoBehaviour
         if (hour >= 0 && hour < dailySchedule.Count)
             return dailySchedule[hour];
         return "House"; // Fallback
+    }
+
+    public void OnHourPassed(int hour)
+    {
+        string placeToGo = dailySchedule[hour % dailySchedule.Count];
+        Debug.Log($"{getName()} now heading to: {placeToGo}");
+        
+        gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
     }
 }

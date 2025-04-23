@@ -74,12 +74,14 @@
     <Compile Include="Assets\Scripts\Characters\NPC.cs" />
     <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
     <Compile Include="Assets\Scripts\Characters\NpcMovement.cs" />
+    <Compile Include="Assets\Scripts\NPCGlobalTimer.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationSession.cs" />
     <Compile Include="Assets\Scripts\Config\ConfigManager.cs" />
     <Compile Include="Assets\Scripts\Session\ConsoleChatbot.cs" />
     <Compile Include="Assets\Scripts\Config\SecretManager.cs" />
     <Compile Include="Assets\Scripts\Characters\PlayerMovement.cs" />
     <Compile Include="Assets\Scripts\Characters\Movement.cs" />
+    <Compile Include="Assets\Scripts\PlaceRegistry.cs" />
     <Compile Include="Assets\Scripts\LLM\LlamaClient.cs" />
   </ItemGroup>
   <ItemGroup>
