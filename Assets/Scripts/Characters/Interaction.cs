@@ -86,6 +86,7 @@ public class Interaction : MonoBehaviour
                 interactionText.SetActive(isPlayerNearby); 
 
                 npcComponent.isInConversation = false;
+                npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
             }
         }
@@ -97,6 +98,7 @@ public class Interaction : MonoBehaviour
             interactionText.SetActive(false); 
 
             npcComponent.isInConversation = true;
+            npcComponent.isTalkingToUser = true;
             factory.RegisterUserNPC(npcComponent, dialogueBox);
         }
     }
@@ -150,6 +152,22 @@ public class Interaction : MonoBehaviour
         {
             interactionText.SetActive(false);
             isPlayerNearby = false;
+        }
+
+        else if (other.CompareTag("NPC_Object"))
+        {
+            NPC otherNPCComponent = other.GetComponent<NPC>();
+
+            bool stopped = factory.StopNPCConversation(npcComponent, otherNPCComponent);
+
+            if (stopped)
+            {
+                npcComponent.isInConversation = false;
+                npcMovement.canMove = true;
+
+                otherNPCComponent.isInConversation = false;
+                otherNPCComponent.GetComponent<NpcMovement>().canMove = true;
+            }
         }
     }
 

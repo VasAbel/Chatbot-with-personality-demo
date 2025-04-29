@@ -429,7 +429,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8782407678852939042, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: speed
-      value: 0
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 907112680403534821, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_IsTrigger
@@ -437,7 +437,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_Name
-      value: Villager (2)
+      value: Gabriel
       objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_TagString
@@ -957,9 +957,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 824880795}
     m_Modifications:
+    - target: {fileID: 907112680403534821, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_IsTrigger
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_Name
-      value: Villager (1)
+      value: Amy
       objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_TagString
@@ -1118,7 +1122,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8782407678852939042, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: canMove
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 907112680403534821, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_IsTrigger
@@ -1126,7 +1130,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_Name
-      value: Villager
+      value: Tim
       objectReference: {fileID: 0}
     - target: {fileID: 1779952185626617607, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_TagString
@@ -1609,7 +1613,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9131751442bb2ef4387d010c4160305e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  secondsPerHour: 60
+  secondsPerHour: 20
 --- !u!4 &1056375555
 Transform:
   m_ObjectHideFlags: 0

@@ -145,16 +145,20 @@ public class ConsoleChatbot : MonoBehaviour
         }
     }
 
-    public void StopSession(string conversationID)
+    public bool StopSession(string conversationID)
     {
         if (activeConversations.TryGetValue(conversationID, out var session))
         {
             session.CancellationTokenSource.Cancel();
             session.IsActive = false;
 
-            Debug.Log($"Conversation {conversationID} was stopped by user.");
+            Debug.Log($"Conversation {conversationID} was stopped.");
             activeConversations.Remove(conversationID);
+
+            return true;
         }
+
+        return false;
     }
 
 

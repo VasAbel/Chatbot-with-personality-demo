@@ -61,6 +61,15 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
+    public bool StopNPCConversation(NPC npc1, NPC npc2)
+    {
+        string convoID = (npc1.idx < npc2.idx) ? 
+                        $"{npc1.getName()}-{npc2.getName()}" :
+                        $"{npc2.getName()}-{npc1.getName()}";
+
+        return chatbotManager.StopSession(convoID);
+    }
+
     private void TryStartNPCConversation(string key)
     {
         if (keyToNPCs.TryGetValue(key, out List<NPC> npcs) && npcs.Count >= 2)

@@ -8,6 +8,7 @@ public class NPC : MonoBehaviour
     
     private string npcName;
     public bool isInConversation = false;
+    public bool isTalkingToUser = false;
     internal ConfigManager.Description desc;
      public List<string> dailySchedule = new List<string>();
 
@@ -37,7 +38,7 @@ public class NPC : MonoBehaviour
             case "Amy":
                 dailySchedule = new List<string>
                 {
-                    "House", "House", "Townhall", "Townhall", "Townhall", "Well", "Market", "Market",
+                    "Well", "Well", "Market", "Townhall", "Townhall", "Well", "Market", "Market",
                     "House", "House", "Market", "Market", "Well", "House", "House", "Market",
                     "Market", "House", "House", "House", "House", "House", "House", "House"
                 };
@@ -53,7 +54,7 @@ public class NPC : MonoBehaviour
             case "Gabriel":
                 dailySchedule = new List<string>
                 {
-                    "House", "House", "Townhall", "Townhall", "Townhall", "Townhall", "Well", "Market",
+                    "Well", "Well", "Well", "Well", "Townhall", "Townhall", "Well", "Market",
                     "Townhall", "Townhall", "Townhall", "House", "House", "House", "Market", "Well",
                     "House", "House", "House", "House", "House", "House", "House", "House"
                 };
@@ -79,6 +80,12 @@ public class NPC : MonoBehaviour
 
     public void OnHourPassed(int hour)
     {
+        if (isInConversation && isTalkingToUser)
+        {
+            Debug.Log($"{getName()} is talking to the player. Skipping move this hour.");
+            return;
+        }
+
         string placeToGo = dailySchedule[hour % dailySchedule.Count];
         Debug.Log($"{getName()} now heading to: {placeToGo}");
         
