@@ -12,7 +12,7 @@ public class Interaction : MonoBehaviour
     private bool isPlayerNearby = false;
     private NPC npcComponent = null;
     private NpcMovement npcMovement = null;
-    private PlayerMovement playerMovement= null;
+    private PlayerMovement playerMovement = null;
 
     void Start()
     {
@@ -29,6 +29,7 @@ public class Interaction : MonoBehaviour
             {
                 dialogueBox = canvas.GetComponentInChildren<TMP_InputField>(true);
             }
+
         }
         else
         {
@@ -78,24 +79,24 @@ public class Interaction : MonoBehaviour
         bool isActiveUserSession = factory.GetNpcToUser() == npcComponent;
         if (isActiveUserSession)
         {
-            if (Input.GetKeyUp(KeyCode.Tab)) 
+            if (Input.GetKeyUp(KeyCode.Tab))
             {
                 dialogueBox.gameObject.SetActive(false);
                 playerMovement.canMove = true;
                 npcMovement.canMove = true;
-                interactionText.SetActive(isPlayerNearby); 
+                interactionText.SetActive(isPlayerNearby);
 
                 npcComponent.isInConversation = false;
                 npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
             }
         }
-        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation) 
+        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation)
         {
             dialogueBox.gameObject.SetActive(true);
-            playerMovement.canMove = false; 
+            playerMovement.canMove = false;
             npcMovement.canMove = false;
-            interactionText.SetActive(false); 
+            interactionText.SetActive(false);
 
             npcComponent.isInConversation = true;
             npcComponent.isTalkingToUser = true;
@@ -110,22 +111,22 @@ public class Interaction : MonoBehaviour
             interactionText.SetActive(true);
             isPlayerNearby = true;
         }
-        else if(other.CompareTag("NPC_Object"))
+        else if (other.CompareTag("NPC_Object"))
         {
             NPC otherNPCComponent = other.gameObject.GetComponent<NPC>();
 
             if (npcComponent.isInConversation || otherNPCComponent.isInConversation)
                 return;
-            
+
             npcComponent.isInConversation = true;
             otherNPCComponent.isInConversation = true;
 
             NpcMovement otherNpcMovement = other.gameObject.GetComponent<NpcMovement>();
             npcMovement.canMove = false;
             otherNpcMovement.canMove = false;
-            
+
             List<NPC> npcs;
-            if(npcComponent.idx < otherNPCComponent.idx)
+            if (npcComponent.idx < otherNPCComponent.idx)
             {
                 npcs = new List<NPC>
                 {

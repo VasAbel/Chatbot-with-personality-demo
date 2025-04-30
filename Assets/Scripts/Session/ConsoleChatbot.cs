@@ -12,6 +12,7 @@ public class ConsoleChatbot : MonoBehaviour
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
     public TMP_InputField userInputField;
+    public TMP_Text messageInputField;
 
     public void StartChatSession(ConversationSession session)
     {
@@ -24,14 +25,14 @@ public class ConsoleChatbot : MonoBehaviour
 
         activeConversations[session.conversationID] = session;
         Debug.Log($"Conversation {session.conversationID} started.");
-        
+
         _ = RunConversation(session);
     }
 
     private async Task RunConversation(ConversationSession session)
     {
         CancellationToken token = session.CancellationTokenSource.Token;
-        
+
         string logFilePath = Path.Combine(Application.persistentDataPath, $"{session.conversationID}.txt");
         Debug.Log($"Log file saved at: {logFilePath}");
 
@@ -51,7 +52,7 @@ public class ConsoleChatbot : MonoBehaviour
 
                 try
                 {
-                // NPC-NPC or NPC responding in a user conversation
+                    // NPC-NPC or NPC responding in a user conversation
                     string response = await client.SendChatMessageAsync(initialPrompt);
 
                     if (session.CancellationTokenSource.Token.IsCancellationRequested)
@@ -77,26 +78,28 @@ public class ConsoleChatbot : MonoBehaviour
                 string userInput = await WaitForUserInput(token);
                 if (string.IsNullOrEmpty(userInput)) break;
 
-                
+
                 await conversationSemaphore.WaitAsync();
 
                 session.PrepareForNextSpeaker(client);
 
                 try
                 {
-                        session.UpdateMessageHistory(userInput);
+                    session.UpdateMessageHistory(userInput);
 
-                        string response = await client.SendChatMessageAsync(userInput);
-                        string logEntry = $"Partner: {response}";
+                    string response = await client.SendChatMessageAsync(userInput);
+                    messageInputField.SetText(response);
 
-                        Debug.Log(logEntry);
-                        File.AppendAllText(logFilePath, logEntry + "\n");
+                    string logEntry = $"Partner: {response}";
 
-                        session.UpdateMessageHistory(response);
+                    Debug.Log(logEntry);
+                    File.AppendAllText(logFilePath, logEntry + "\n");
+
+                    session.UpdateMessageHistory(response);
                 }
                 finally
                 {
-                        conversationSemaphore.Release();            
+                    conversationSemaphore.Release();
                 }
             }
         }
