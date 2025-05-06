@@ -12,7 +12,7 @@ public class ConsoleChatbot : MonoBehaviour
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
     public TMP_InputField userInputField;
-    public TMP_Text messageInputField;
+    public GameObject messageInputField;
 
     public void StartChatSession(ConversationSession session)
     {
@@ -88,7 +88,8 @@ public class ConsoleChatbot : MonoBehaviour
                     session.UpdateMessageHistory(userInput);
 
                     string response = await client.SendChatMessageAsync(userInput);
-                    messageInputField.SetText(response);
+                    messageInputField.gameObject.SetActive(true);
+                    messageInputField.GetComponentInChildren<TMP_Text>().SetText(response);
 
                     string logEntry = $"Partner: {response}";
 

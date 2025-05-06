@@ -8,6 +8,7 @@ public class Interaction : MonoBehaviour
 {
     private GameObject interactionText = null;
     private TMP_InputField dialogueBox = null;
+    public GameObject responseBox = null;
     private ConversationFactory factory = null;
     private bool isPlayerNearby = false;
     private NPC npcComponent = null;
@@ -30,6 +31,10 @@ public class Interaction : MonoBehaviour
                 dialogueBox = canvas.GetComponentInChildren<TMP_InputField>(true);
             }
 
+            if (responseBox == null)
+            {
+                responseBox = GameObject.FindGameObjectWithTag("ResponseText");
+            }
         }
         else
         {
@@ -45,6 +50,11 @@ public class Interaction : MonoBehaviour
             dialogueBox.gameObject.SetActive(false);
         else
             Debug.LogWarning("Dialogue box (TMP_InputField) not found (even when inactive).");
+
+        if (responseBox != null)
+            responseBox.SetActive(false);
+        else
+            Debug.LogWarning("Response box (GameObject) not found (even when inactive).");
 
         if (factory == null)
         {
@@ -82,6 +92,7 @@ public class Interaction : MonoBehaviour
             if (Input.GetKeyUp(KeyCode.Tab))
             {
                 dialogueBox.gameObject.SetActive(false);
+                responseBox.SetActive(false);
                 playerMovement.canMove = true;
                 npcMovement.canMove = true;
                 interactionText.SetActive(isPlayerNearby);
@@ -94,13 +105,14 @@ public class Interaction : MonoBehaviour
         else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation)
         {
             dialogueBox.gameObject.SetActive(true);
+            responseBox.SetActive(true);
             playerMovement.canMove = false;
             npcMovement.canMove = false;
             interactionText.SetActive(false);
 
             npcComponent.isInConversation = true;
             npcComponent.isTalkingToUser = true;
-            factory.RegisterUserNPC(npcComponent, dialogueBox);
+            factory.RegisterUserNPC(npcComponent, dialogueBox, responseBox);
         }
     }
 

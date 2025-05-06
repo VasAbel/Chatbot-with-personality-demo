@@ -27,7 +27,7 @@ public class ConversationFactory : MonoBehaviour
         TryStartNPCConversation(key);
     }
 
-    public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox)
+    public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox, GameObject responseBox)
     {
         if (npcToUser != null)
         {
@@ -36,7 +36,7 @@ public class ConversationFactory : MonoBehaviour
         }
 
         npcToUser = npc;
-        TryStartUserConversation(dialogueBox);
+        TryStartUserConversation(dialogueBox, responseBox);
     }
 
     /*void Update()
@@ -58,6 +58,10 @@ public class ConversationFactory : MonoBehaviour
         if (npcToUser == npc)
         {
             npcToUser = null;
+        }
+        else
+        {
+            Debug.LogError($"StopUserConversation called for {npc.getName()} but the registered NPC is {npcToUser}!");
         }
     }
 
@@ -88,7 +92,7 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
-    private void TryStartUserConversation(TMP_InputField dialogueBox)
+    private void TryStartUserConversation(TMP_InputField dialogueBox, GameObject responseBox)
     {
         if (npcToUser != null)
         {
@@ -96,6 +100,7 @@ public class ConversationFactory : MonoBehaviour
 
             ConversationSession newSession = new UserConversationSession(npcToUser);
             chatbotManager.userInputField = dialogueBox;
+            chatbotManager.messageInputField = responseBox;
             chatbotManager.StartChatSession(newSession);
         }
         else
