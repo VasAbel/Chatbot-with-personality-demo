@@ -30,4 +30,10 @@ public class NPCConversationSession : ConversationSession
     }
 
     public override bool IsUserConversation() => false;
+
+    public NPC GetNPC(int index)
+    {
+        if(index == 0) return npc1;
+        else return npc2;
+    }
 }

@@ -14,4 +14,8 @@ public abstract class ConversationSession
     public abstract void UpdateMessageHistory(string message);
     public abstract void PrepareForNextSpeaker(LlamaClient client);
     public abstract bool IsUserConversation();
+    public List<string> GetMessageHistory()
+    {
+        return messageHistory;
+    }
 }

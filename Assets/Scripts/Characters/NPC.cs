@@ -10,7 +10,8 @@ public class NPC : MonoBehaviour
     public bool isInConversation = false;
     public bool isTalkingToUser = false;
     internal ConfigManager.Description desc;
-     public List<string> dailySchedule = new List<string>();
+    public List<string> dailySchedule = new List<string>();
+    public Dictionary<string, string> memoryMap = new Dictionary<string, string>();
 
     public void Awake()
     {
@@ -90,5 +91,10 @@ public class NPC : MonoBehaviour
         Debug.Log($"{getName()} now heading to: {placeToGo}");
         
         gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
+    }
+
+    public void UpdateMemory(string npcName, string newSummary)
+    {
+        memoryMap[npcName] = newSummary;
     }
 }

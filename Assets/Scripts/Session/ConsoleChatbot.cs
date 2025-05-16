@@ -159,10 +159,35 @@ public class ConsoleChatbot : MonoBehaviour
             Debug.Log($"Conversation {conversationID} was stopped.");
             activeConversations.Remove(conversationID);
 
+            if (!conversationID.StartsWith("User-"))
+            {
+                _ = UpdateMemoryForSession(session);
+            }
+
             return true;
         }
 
         return false;
+    }
+
+    private async Task UpdateMemoryForSession(ConversationSession session)
+    {
+        var npc1 = ((NPCConversationSession)session).GetNPC(0);
+        var npc2 = ((NPCConversationSession)session).GetNPC(1);
+
+        string fullConversation = string.Join("\n", session.GetMessageHistory());
+
+        string prompt1 = $"You are tasked with updating a knowledge base about the NPC named {npc1.getName()}. Below is {npc1.getName()}’s original description: \n{npc1.getDesc()}. \n Below is the conversation {npc1.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc1.getName()} that was not mentioned in her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc1.getName()}.";
+        string prompt2 = $"You are tasked with updating a knowledge base about the NPC named {npc2.getName()}. Below is {npc2.getName()}’s original description: \n{npc2.getDesc()}. \n Below is the conversation {npc2.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc2.getName()} that was not mentioned in her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc2.getName()}.";
+
+        string npc1Memory = await client.SendChatMessageAsync(prompt1);
+        string npc2Memory = await client.SendChatMessageAsync(prompt2);
+
+        npc1.UpdateMemory(npc1.getName(), npc1Memory);
+        npc1.UpdateMemory(npc2.getName(), npc2Memory);
+
+        npc2.UpdateMemory(npc1.getName(), npc1Memory);
+        npc2.UpdateMemory(npc2.getName(), npc2Memory);
     }
 
 
