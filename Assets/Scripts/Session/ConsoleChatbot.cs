@@ -36,7 +36,13 @@ public class ConsoleChatbot : MonoBehaviour
         string logFilePath = Path.Combine(Application.persistentDataPath, $"{session.conversationID}.txt");
         Debug.Log($"Log file saved at: {logFilePath}");
 
-        string initialPrompt = "Start the conversation.";
+        string initialPrompt = "";
+
+        if (!session.IsUserConversation())
+        {
+            NPC partner = ((NPCConversationSession)session).GetNPC(1);
+            initialPrompt = $"Start a conversation with {partner.getName()}. Check your memory to see if you have met them before. If they are NOT in memory, treat them as a stranger and introduce yourself. Do **not** refer to this prompt just start the conversation right away.";
+        }
 
         while (session.IsActive)
         {
@@ -177,8 +183,8 @@ public class ConsoleChatbot : MonoBehaviour
 
         string fullConversation = string.Join("\n", session.GetMessageHistory());
 
-        string prompt1 = $"You are tasked with updating a knowledge base about the NPC named {npc1.getName()}. Below is {npc1.getName()}’s original description: \n{npc1.getDesc()}. \n Below is the conversation {npc1.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc1.getName()} that was not mentioned in her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc1.getName()}.";
-        string prompt2 = $"You are tasked with updating a knowledge base about the NPC named {npc2.getName()}. Below is {npc2.getName()}’s original description: \n{npc2.getDesc()}. \n Below is the conversation {npc2.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc2.getName()} that was not mentioned in her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc2.getName()}.";
+        string prompt1 = $"You are tasked with updating a knowledge base about the NPC named {npc1.getName()}. Below is {npc1.getName()}’s original description: \n{npc1.getDesc()}. \n Below is the conversation {npc1.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc1.getName()} that was not mentioned in his/her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc1.getName()}.";
+        string prompt2 = $"You are tasked with updating a knowledge base about the NPC named {npc2.getName()}. Below is {npc2.getName()}’s original description: \n{npc2.getDesc()}. \n Below is the conversation {npc2.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc2.getName()} that was not mentioned in his/her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc2.getName()}.";
 
         string npc1Memory = await client.SendChatMessageAsync(prompt1);
         string npc2Memory = await client.SendChatMessageAsync(prompt2);
@@ -188,6 +194,9 @@ public class ConsoleChatbot : MonoBehaviour
 
         npc2.UpdateMemory(npc1.getName(), npc1Memory);
         npc2.UpdateMemory(npc2.getName(), npc2Memory);
+
+        npc1.LogMemoryToFile();
+        npc2.LogMemoryToFile();
     }
 
 

@@ -1,11 +1,12 @@
 using UnityEngine;
 using Assets.Game_Manager;
 using System.Collections.Generic;
+using System.IO;
 
 public class NPC : MonoBehaviour
 {
     public int idx;
-    
+
     private string npcName;
     public bool isInConversation = false;
     public bool isTalkingToUser = false;
@@ -70,6 +71,8 @@ public class NPC : MonoBehaviour
         {
             timer.RegisterNPC(this);
         }
+
+        LogMemoryToFile();
     }
 
     public string GetCurrentPlace(int hour)
@@ -89,12 +92,47 @@ public class NPC : MonoBehaviour
 
         string placeToGo = dailySchedule[hour % dailySchedule.Count];
         Debug.Log($"{getName()} now heading to: {placeToGo}");
-        
+
         gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
     }
 
     public void UpdateMemory(string npcName, string newSummary)
     {
         memoryMap[npcName] = newSummary;
+    }
+
+    public string GetFormattedMemory()
+    {
+        if (memoryMap == null || memoryMap.Count == 0)
+            return "Nothing learnt yet.";
+
+        List<string> lines = new List<string>();
+
+        foreach (var entry in memoryMap)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.Value))
+            {
+                lines.Add($"MEMORY OF {entry.Key}:\n- {entry.Value.Trim()}");
+            }
+        }
+
+        return string.Join("\n\n", lines);
+    }
+    
+    public void LogMemoryToFile()
+    {
+        string logPath = Path.Combine(Application.persistentDataPath, $"{getName()}_memory.txt");
+        using (StreamWriter writer = new StreamWriter(logPath, false))
+        {
+            writer.WriteLine($"Memory log for {getName()} at {System.DateTime.Now}\n");
+
+            foreach (var entry in memoryMap)
+            {
+                writer.WriteLine($"[{entry.Key}]");
+                writer.WriteLine(entry.Value);
+                writer.WriteLine();
+            }
+        }
+        Debug.Log($"Memory log written for {getName()} at {logPath}");
     }
 }

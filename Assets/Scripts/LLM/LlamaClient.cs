@@ -62,10 +62,10 @@ public class LlamaClient : ChatClient
     public void SetSystemMessage(string newDescription, List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
     {
         conversationHistory.Clear();
-        conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription });
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription + "Previous messages of the history are labeled with speaker names, but you must not include a speaker name in your own replies. Just answer directly." });
 
         bool isNpc1Speaking = currentSpeaker == npc1;
-
+ 
         for (int i = 0; i < sessionHistory.Count; i++)
         {
             bool messageFromNpc1 = i % 2 == 0;
