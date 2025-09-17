@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using Lodestars;
+using System;
 
 public class LlamaClient : ChatClient
 {
     private LlamaAPI llamaApi;
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
+    private readonly System.Random rng = new System.Random();
 
     void Start()      
     {
@@ -45,18 +47,93 @@ public class LlamaClient : ChatClient
             Messages = conversationHistory,
             MaxTokens = 100
         };
-        
-        var response = await llamaApi.CreateChatCompletion(request);
-        if (response.Choices != null && response.Choices.Count > 0)
+
+        try
         {
-            var aiResponse = response.Choices[0].Message.Content;
+            var response = await llamaApi.CreateChatCompletion(request);
+            string aiResponse = null;
+            if (response.Choices != null && response.Choices.Count > 0)
+            {
+                aiResponse = response.Choices[0].Message.Content;
+
+            }
+            else
+            {
+                Debug.LogError("Failed to get response from AI");
+                //throw new ChatClientFailedException();
+                aiResponse = GenerateFallbackReply(messageContent);
+            }
             conversationHistory.Add(new ChatMessage { Role = "assistant", Content = aiResponse });
         }
-        else
+        catch (Exception ex)
         {
-            Debug.LogError("Failed to get response from AI");
-            throw new ChatClientFailedException();
+            Debug.LogWarning($"LLM call failed, using fallback. Reason: {ex.Message}");
+            var aiResponse = GenerateFallbackReply(messageContent);
+            conversationHistory.Add(new ChatMessage { Role = "assistant", Content = aiResponse });
         }
+    
+    }
+
+    private string Pick(string[] options) => options[rng.Next(options.Length)];
+    
+    private string GenerateFallbackReply(string userMessage)
+    {
+        // Special case: first-turn starter used by ConsoleChatbot
+        if (userMessage.StartsWith("Start a conversation", StringComparison.OrdinalIgnoreCase))
+        {
+            var greet = Pick(new[]
+            {
+                "Hey there! Nice to see you around.",
+                "Hi! Fancy running into you here.",
+                "Hello! How’s your day going?",
+                "Oh, hey! Been up to anything interesting?"
+            });
+            var follow = Pick(new[]
+            {
+                "What brings you here today?",
+                "How are things on your side?",
+                "Anything new happening?",
+                "What are you working on?"
+            });
+            return $"{greet} {follow}";
+        }
+
+        // If user asked a question
+        if (userMessage.Contains("?"))
+        {
+            var shortAnswer = Pick(new[]
+            {
+                "Good question—I'd say it depends.",
+                "I think that makes sense.",
+                "Probably, but I'd like to hear your take.",
+                "Could be! What do you think?"
+            });
+            var bounce = Pick(new[]
+            {
+                "How do you see it?",
+                "What’s your opinion?",
+                "Curious what you’d choose.",
+                "I’m open to ideas."
+            });
+            return $"{shortAnswer} {bounce}";
+        }
+
+        // Generic small-talk fallback
+        var smallTalk = Pick(new[]
+        {
+            "I was just thinking about grabbing a drink from the well.",
+            "Market’s busy today—lots of chatter.",
+            "It’s a calm day; perfect for a short walk.",
+            "Townhall looks lively; maybe there’s some meeting."
+        });
+        var promptBack = Pick(new[]
+        {
+            "How’s your day going?",
+            "What are you up to?",
+            "Anything interesting happening?",
+            "Got any plans?"
+        });
+        return $"{smallTalk} {promptBack}";
     }
 
     public void SetSystemMessage(string newDescription, List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
@@ -65,7 +142,7 @@ public class LlamaClient : ChatClient
         conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription + "Previous messages of the history are labeled with speaker names, but you must not include a speaker name in your own replies. Just answer directly." });
 
         bool isNpc1Speaking = currentSpeaker == npc1;
- 
+
         for (int i = 0; i < sessionHistory.Count; i++)
         {
             bool messageFromNpc1 = i % 2 == 0;
