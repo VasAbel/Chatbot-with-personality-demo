@@ -25,7 +25,6 @@ public class ChatBubbleAnchor : MonoBehaviour
         // place above head with local offset
         go.transform.localPosition = offset;
         go.transform.localRotation = Quaternion.identity;
-        go.transform.localScale = Vector3.one; // keep prefab scale
 
         current = go.GetComponent<ChatBubble>();
         current.Initialize(text, lifetime ?? defaultLifetime);
