@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8410381264206735192}
   - component: {fileID: -8782407678852939042}
   - component: {fileID: 4899496348010752953}
+  - component: {fileID: -3129879752779511871}
   m_Layer: 0
   m_Name: Villager
   m_TagString: Untagged
@@ -101,6 +102,21 @@ MonoBehaviour:
   isInConversation: 0
   isTalkingToUser: 0
   dailySchedule: []
+--- !u!114 &-3129879752779511871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779952185626617607}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8bf1de41d7d196047ae96aad0aae1f9e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
+  offset: {x: 0, y: 0.01, z: 0}
+  defaultLifetime: 3
 --- !u!1001 &2480161222923675932
 PrefabInstance:
   m_ObjectHideFlags: 0

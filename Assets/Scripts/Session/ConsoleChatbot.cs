@@ -68,6 +68,8 @@ public class ConsoleChatbot : MonoBehaviour
                     Debug.Log(logEntry);
 
                     File.AppendAllText(logFilePath, logEntry + "\n");
+                    
+                    currentSpeaker.GetComponent<ChatBubbleAnchor>()?.Show(response);
 
                     session.UpdateMessageHistory(initialPrompt);
                     initialPrompt = response;
