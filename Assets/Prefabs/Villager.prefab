@@ -115,7 +115,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.01, z: 0}
+  offset: {x: 0, y: 0.1, z: 0}
   defaultLifetime: 3
 --- !u!1001 &2480161222923675932
 PrefabInstance:

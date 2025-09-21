@@ -30,11 +30,16 @@ public class ChatBubble : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (faceCamera && _cam)
-        {
-            // billboard
-            transform.forward = _cam.transform.forward;
-        }
+        if (!faceCamera) return;
+
+        if (!_cam) _cam = Camera.main;
+        if (!_cam) return;
+
+        // Vector from bubble to camera
+        Vector3 toCam = (_cam.transform.position - transform.position).normalized;
+
+        // Face the camera while keeping text upright using the camera's up vector
+        transform.rotation = Quaternion.LookRotation(-toCam, _cam.transform.up);
     }
 
     public void Initialize(string content, float duration = -1f)
