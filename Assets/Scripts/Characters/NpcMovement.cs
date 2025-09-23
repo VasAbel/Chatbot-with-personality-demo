@@ -10,7 +10,7 @@ public class NpcMovement : Movement
             Vector3 direction = (destination.position - transform.position).normalized;
             movement = direction;
             float distance = Vector3.Distance(transform.position, destination.position);
-                if (distance < 0.2f)
+                if (distance < 0.02f)
                 {
                     movement = Vector3.zero;
                     canMove = false;
