@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8730457759258787175}
   - component: {fileID: 8052261392479977921}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: ChatBubble
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -65,7 +65,7 @@ GameObject:
   - component: {fileID: 8211520319254971188}
   - component: {fileID: 3585958637706561365}
   - component: {fileID: 7161342421541768262}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Canvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -166,7 +166,7 @@ GameObject:
   - component: {fileID: 8888617700453960037}
   - component: {fileID: 2648669047934984735}
   - component: {fileID: 8069697963689847537}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -242,7 +242,7 @@ GameObject:
   - component: {fileID: 8095371826109161360}
   - component: {fileID: 1366941760788991526}
   - component: {fileID: 3808727145866188220}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
