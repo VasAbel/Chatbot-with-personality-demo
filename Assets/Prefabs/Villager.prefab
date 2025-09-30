@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca901c1129ee6094d913a4c93c3f84a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 0.1
+  speed: 2
   movement: {x: 0, y: 0, z: 0}
   canMove: 1
 --- !u!114 &4899496348010752953
@@ -115,7 +115,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.1, z: 0}
+  offset: {x: 0, y: 2, z: 0}
   defaultLifetime: 3
 --- !u!1001 &2480161222923675932
 PrefabInstance:

@@ -5,7 +5,7 @@ public class ChatBubbleAnchor : MonoBehaviour
 {
     [Header("Prefab & Positioning")]
     [SerializeField] private ChatBubble bubblePrefab;
-    [SerializeField] private Vector3 offset = new Vector3(0f, 0.1f, 0f);
+    [SerializeField] private Vector3 offset = new Vector3(0f, 2f, 0f);
     [SerializeField] private float defaultLifetime = 3.0f;
 
     private ChatBubble current;

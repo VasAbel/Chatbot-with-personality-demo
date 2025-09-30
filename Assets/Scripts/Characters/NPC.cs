@@ -48,7 +48,7 @@ public class NPC : MonoBehaviour
             case "Tim":
                 dailySchedule = new List<string>
                 {
-                    "House", "House", "Market", "Market", "Market", "Market", "Market", "House",
+                    "Townhall", "House", "Market", "Market", "Market", "Market", "Market", "House",
                     "Market", "Market", "Market", "Market", "Well", "House", "House", "Market",
                     "Townhall", "Townhall", "House", "House", "House", "House", "House", "House"
                 };

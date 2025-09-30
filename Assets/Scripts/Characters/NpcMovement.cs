@@ -14,7 +14,7 @@ public class NpcMovement : Movement
             
             agent.speed = speed; 
             agent.angularSpeed = 720f;
-            agent.acceleration = 2f;
+            agent.acceleration = 6f;
             agent.stoppingDistance = 0.02f;
             agent.updateRotation = true;
             agent.updateUpAxis = true;
