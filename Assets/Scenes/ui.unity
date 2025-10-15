@@ -3029,7 +3029,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70efde66fb9d09b4bac6028a929e34c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  client: {fileID: 1259602431}
+  client: {fileID: 1259602432}
   userInputField: {fileID: 1767314832}
   messageInputField: {fileID: 0}
 --- !u!114 &1259602431

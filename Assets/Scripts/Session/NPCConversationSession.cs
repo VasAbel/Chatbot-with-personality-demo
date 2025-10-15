@@ -35,7 +35,7 @@ public class NPCConversationSession : ConversationSession
         }
     }
 
-    public override void PrepareForNextSpeaker(LlamaClient client)
+    public override void PrepareForNextSpeaker(GptClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
 

@@ -8,7 +8,7 @@ using TMPro;
 
 public class ConsoleChatbot : MonoBehaviour
 {
-    public LlamaClient client;
+    public GptClient client;
     private Dictionary<string, ConversationSession> activeConversations = new Dictionary<string, ConversationSession>();
     private readonly SemaphoreSlim conversationSemaphore = new SemaphoreSlim(1, 1);
     public TMP_InputField userInputField;

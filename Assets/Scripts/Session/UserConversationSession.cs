@@ -24,7 +24,7 @@ public class UserConversationSession : ConversationSession
         isUserTurn = !isUserTurn; // Swap turns
     }
 
-    public override void PrepareForNextSpeaker(LlamaClient client)
+    public override void PrepareForNextSpeaker(GptClient client)
     {
             client.SetSystemMessage(npc.getDesc(), messageHistory, npc, npc); 
     }
