@@ -44,9 +44,9 @@ public class GptClient : ChatClient
 
         var request = new CreateChatCompletionRequest
         {
-            Model = "gpt-4",
+            Model = "gpt-4o-mini",
             Messages = conversationHistory,
-            MaxTokens = 100,
+            MaxTokens = 120,
             PresencePenalty = 1,
             FrequencyPenalty = 1,
         };
@@ -74,7 +74,34 @@ public class GptClient : ChatClient
             var aiResponse = GenerateFallbackReply(messageContent);
             conversationHistory.Add(new ChatMessage { Role = "assistant", Content = aiResponse });
         }
+
+    }
     
+    public async Task<string> RequestJsonAsync(string system, string user, int maxTokens = 500)
+    {
+        var req = new CreateChatCompletionRequest
+        {
+            Model = "gpt-4o-mini",        // cheaper, very good at JSON
+            Messages = new List<ChatMessage>
+            {
+                new ChatMessage { Role = "system", Content = system },
+                new ChatMessage { Role = "user",   Content = user   }
+            },
+            MaxTokens = maxTokens,
+            Temperature = 0.2f,
+            PresencePenalty = 0,
+            FrequencyPenalty = 0,
+            // IMPORTANT: force valid JSON
+            ResponseFormat = new ResponseFormat
+            {
+                Type = "json_object"
+            }
+        };
+
+        var resp = await openAIApi.CreateChatCompletion(req);
+        return resp.Choices != null && resp.Choices.Count > 0
+            ? resp.Choices[0].Message.Content
+            : "{}";
     }
 
     private string Pick(string[] options) => options[rng.Next(options.Length)];
@@ -142,7 +169,40 @@ public class GptClient : ChatClient
     public void SetSystemMessage(string newDescription, List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
     {
         conversationHistory.Clear();
-        conversationHistory.Add(new ChatMessage { Role = "system", Content = newDescription + "Previous messages of the history are labeled with speaker names, but you must not include a speaker name in your own replies. Just answer directly." });
+
+        string socialSnippet = "";
+        foreach (var kv in currentSpeaker.memory.socialByNpc)
+            socialSnippet += $"- {kv.Key}: {kv.Value}\n";
+
+        string thoughtsSnippet = "";
+        int shown = 0;
+        foreach (var t in currentSpeaker.memory.currentThoughts.OrderByDescending(t => t.salience))
+        {
+            thoughtsSnippet += $"- {t.text}\n";
+            if (++shown >= 5) break;
+        }
+
+        string sys = $@"
+            You are role-playing this NPC. Speak naturally, briefly, and in character.
+            Evolve over time: accept strong arguments, revise beliefs when warranted, and form short-term plans.
+
+            # Identity (stable, but editable over time)
+            {currentSpeaker.memory.corePersonality}
+
+            # Social memory (what you recall about others)
+            {(string.IsNullOrWhiteSpace(socialSnippet) ? "- (none yet)\n" : socialSnippet)}
+
+            # Current plans & thoughts (ephemeral; can be dropped/updated)
+            {(string.IsNullOrWhiteSpace(thoughtsSnippet) ? "- (none yet)\n" : thoughtsSnippet)}
+
+            # Style & norms
+            - Never dump your whole biography; reveal small pieces across turns.
+            - If you don't remember someone (not in Social memory), treat as first meeting.
+            - Debate respectfully; consider counter-arguments. If persuaded, say so and update your stance.
+            - Keep replies concise (1–3 sentences). Do not prefix with your name.
+            ";
+        
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = sys});
 
         bool isNpc1Speaking = currentSpeaker == npc1;
 

@@ -77,6 +77,7 @@
     <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
     <Compile Include="Assets\Scripts\Characters\NpcMovement.cs" />
     <Compile Include="Assets\Scripts\ChatBubble\ChatBubbleAnchor.cs" />
+    <Compile Include="Assets\Scripts\Memory\NpcMemory.cs" />
     <Compile Include="Assets\Scripts\ChatBubble\ChatBubble.cs" />
     <Compile Include="Assets\Scripts\OrthoAutoFramer.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationSession.cs" />

@@ -5,6 +5,8 @@ using System.Threading;
 using System.IO;
 using UnityEngine.UI;
 using TMPro;
+using System;
+using System.Linq;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -178,6 +180,29 @@ public class ConsoleChatbot : MonoBehaviour
         return false;
     }
 
+    private static string SanitizeJson(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return "{}";
+
+        // strip ```json fences if any
+        if (raw.StartsWith("```"))
+        {
+            int s = raw.IndexOf('{');
+            int e = raw.LastIndexOf('}');
+            if (s >= 0 && e > s) raw = raw.Substring(s, e - s + 1);
+        }
+
+        // trim to outermost {...}
+        int start = raw.IndexOf('{');
+        int end   = raw.LastIndexOf('}');
+        if (start >= 0 && end > start) raw = raw.Substring(start, end - start + 1);
+
+        // normalize smart quotes
+        raw = raw.Replace('“', '"').Replace('”', '"');
+
+        return raw.Trim();
+    }
+
     private async Task UpdateMemoryForSession(ConversationSession session)
     {
         var npc1 = ((NPCConversationSession)session).GetNPC(0);
@@ -185,22 +210,176 @@ public class ConsoleChatbot : MonoBehaviour
 
         string fullConversation = string.Join("\n", session.GetMessageHistory());
 
-        string prompt1 = $"You are tasked with updating a knowledge base about the NPC named {npc1.getName()}. Below is {npc1.getName()}’s original description: \n{npc1.getDesc()}. \n Below is the conversation {npc1.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc1.getName()} that was not mentioned in his/her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc1.getName()}.";
-        string prompt2 = $"You are tasked with updating a knowledge base about the NPC named {npc2.getName()}. Below is {npc2.getName()}’s original description: \n{npc2.getDesc()}. \n Below is the conversation {npc2.getName()} had with another character:\n {fullConversation}\n What new personal information has been revealed about {npc2.getName()} that was not mentioned in his/her original description? Summarize it briefly and clearly, so it can be added to a memory file. Focus only on new facts about {npc2.getName()}.";
+        string baseInstr = @"
+You are a memory updater for a role-playing simulation.
+Reply with VALID JSON ONLY (no markdown fences, no commentary).
+Use this schema exactly:
 
-        string npc1Memory = await client.SendChatMessageAsync(prompt1);
-        string npc2Memory = await client.SendChatMessageAsync(prompt2);
+{
+  ""core"": { ""add"": [""...""], ""update"": [""...""], ""remove"": [""...""] },
+  ""social"": { ""NPC_NAME"": { ""summary"": ""..."" } },
+  ""thoughts"": { ""add"": [""...""], ""reinforce"": [""...""], ""drop"": [""...""] }
+}
 
-        npc1.UpdateMemory(npc1.getName(), npc1Memory);
-        npc1.UpdateMemory(npc2.getName(), npc2Memory);
+Rules:
+- Keep strings concise (< 120 chars).
+- No duplicates.
+- Move item from thoughts → core only if it seems stable/persistent.
+- If a belief is revised, update or remove the old one.
+- Thoughts = short-term plans / evolving ideas.
+- Limit each list to at most 3 items (omit empty lists).";
 
-        npc2.UpdateMemory(npc1.getName(), npc1Memory);
-        npc2.UpdateMemory(npc2.getName(), npc2Memory);
+        string promptFor(NPC self, NPC partner) => $@"
+        NPC: {self.getName()}
+        Partner: {partner.getName()}
+
+        PREVIOUS CORE:
+        {self.memory.corePersonality}
+
+        PREVIOUS SOCIAL:
+        {string.Join("\n", self.memory.socialByNpc.Select(kv => $"{kv.Key}: {kv.Value}"))}
+
+        PREVIOUS THOUGHTS:
+        {string.Join("\n", self.memory.currentThoughts.Select(t => $"- {t.text} (salience {(int)(t.salience * 100)}%)"))}
+
+        CONVERSATION:
+        {fullConversation}
+
+        Return the JSON object now.";
+
+        string json1, json2;
+
+        if (client is GptClient gpt)
+        {
+            json1 = await gpt.RequestJsonAsync(baseInstr, promptFor(npc1, npc2), 700);
+            json2 = await gpt.RequestJsonAsync(baseInstr, promptFor(npc2, npc1), 700);
+        }
+        else
+        {
+            // Fallback: old text path (system+user concatenated)
+            json1 = await client.SendChatMessageAsync(baseInstr + "\n\n" + promptFor(npc1, npc2));
+            json2 = await client.SendChatMessageAsync(baseInstr + "\n\n" + promptFor(npc2, npc1));
+        }
+
+        json1 = SanitizeJson(json1);
+        json2 = SanitizeJson(json2);
+
+        ApplyMemoryJson(npc1, json1);
+        ApplyMemoryJson(npc2, json2);
 
         npc1.LogMemoryToFile();
         npc2.LogMemoryToFile();
     }
+    
+    [Serializable] class MemoryDeltaRoot
+    {
+        public CoreDelta core;
+        public Dictionary<string, SocialDelta> social;
+        public ThoughtsDelta thoughts;
 
+        [Serializable] public class CoreDelta { public List<string> add; public List<string> update; public List<string> remove; }
+        [Serializable] public class SocialDelta { public string summary; }
+        [Serializable] public class ThoughtsDelta { public List<string> add; public List<string> reinforce; public List<string> drop; }
+    }
+
+    private void ApplyMemoryJson(NPC npc, string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+
+        MemoryDeltaRoot delta = null;
+        try
+        {
+            delta = Newtonsoft.Json.JsonConvert.DeserializeObject<MemoryDeltaRoot>(json);
+        }
+        catch
+        {
+            Debug.LogWarning($"Memory JSON parse failed for {npc.getName()}, raw:\n{json}");
+            return;
+        }
+        if (delta == null) return;
+
+        // CORE
+        if (delta.core != null)
+        {
+            // super simple core: treat it as bullet text; append adds/updates; remove lines that contain the string
+            var lines = npc.memory.corePersonality.Split('\n').ToList();
+
+            void AppendList(List<string> list)
+            {
+                if (list == null) return;
+                foreach (var s in list)
+                    if (!string.IsNullOrWhiteSpace(s) && !lines.Any(l => l.IndexOf(s, StringComparison.OrdinalIgnoreCase) >= 0))
+                        lines.Add("- " + s.Trim());
+            }
+
+            AppendList(delta.core.add);
+            AppendList(delta.core.update);
+
+            if (delta.core.remove != null)
+                lines.RemoveAll(l => delta.core.remove.Any(r => l.IndexOf(r, StringComparison.OrdinalIgnoreCase) >= 0));
+
+            // keep core short
+            if (lines.Count > 18) lines = lines.Take(18).ToList();
+            npc.memory.corePersonality = string.Join("\n", lines);
+        }
+
+        // SOCIAL
+        if (delta.social != null)
+        {
+            foreach (var kv in delta.social)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
+                npc.memory.socialByNpc[kv.Key] = kv.Value.summary?.Trim();
+            }
+        }
+
+        // THOUGHTS
+        if (delta.thoughts != null)
+        {
+            npc.DecayThoughts(0.0f); // no decay right now, changes are explicit
+            // add
+            if (delta.thoughts.add != null)
+            {
+                foreach (var s in delta.thoughts.add)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    npc.memory.currentThoughts.Add(new Thought
+                    {
+                        text = s.Trim(),
+                        confidence = 0.6f,
+                        salience = 0.6f,
+                        createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                    });
+                }
+            }
+            // reinforce
+            if (delta.thoughts.reinforce != null)
+            {
+                foreach (var s in delta.thoughts.reinforce)
+                {
+                    var t = npc.memory.currentThoughts.FirstOrDefault(x =>
+                        x.text.IndexOf(s ?? "", StringComparison.OrdinalIgnoreCase) >= 0);
+                    if (t != null)
+                    {
+                        t.salience = Mathf.Clamp01(t.salience + 0.2f);
+                        t.confidence = Mathf.Clamp01(t.confidence + 0.2f);
+                    }
+                }
+            }
+            // drop
+            if (delta.thoughts.drop != null)
+            {
+                npc.memory.currentThoughts.RemoveAll(x =>
+                    delta.thoughts.drop.Any(s => x.text.IndexOf(s ?? "", StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+
+            // keep only top N by salience to control tokens
+            npc.memory.currentThoughts = npc.memory.currentThoughts
+                .OrderByDescending(t => t.salience)
+                .Take(12)
+                .ToList();
+        }
+    }
 
     private void OnApplicationQuit()
     {

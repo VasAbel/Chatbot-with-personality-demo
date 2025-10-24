@@ -2,6 +2,8 @@ using UnityEngine;
 using Assets.Game_Manager;
 using System.Collections.Generic;
 using System.IO;
+using System;
+using System.Linq;
 
 public class NPC : MonoBehaviour
 {
@@ -12,12 +14,13 @@ public class NPC : MonoBehaviour
     public bool isTalkingToUser = false;
     internal ConfigManager.Description desc;
     public List<string> dailySchedule = new List<string>();
-    public Dictionary<string, string> memoryMap = new Dictionary<string, string>();
+    public NpcMemory memory = new NpcMemory();
 
     public void Awake()
     {
         desc = ConfigManager.Instance.GetFullCharacterDescription(idx);
         npcName = ConfigManager.Instance.GetCharacterName(idx);
+        memory.corePersonality = desc.description;
     }
 
     public string getName() => npcName;
@@ -98,41 +101,97 @@ public class NPC : MonoBehaviour
 
     public void UpdateMemory(string npcName, string newSummary)
     {
-        memoryMap[npcName] = newSummary;
+        memory.socialByNpc[npcName] = newSummary;
     }
 
     public string GetFormattedMemory()
     {
-        if (memoryMap == null || memoryMap.Count == 0)
-            return "Nothing learnt yet.";
-
         List<string> lines = new List<string>();
 
-        foreach (var entry in memoryMap)
+        if (memory.socialByNpc != null)
         {
-            if (!string.IsNullOrWhiteSpace(entry.Value))
+            foreach (var kv in memory.socialByNpc)
             {
-                lines.Add($"MEMORY OF {entry.Key}:\n- {entry.Value.Trim()}");
+                if (!string.IsNullOrWhiteSpace(kv.Value))
+                    lines.Add($"MEMORY OF {kv.Key}:\n- {kv.Value.Trim()}");
             }
         }
 
-        return string.Join("\n\n", lines);
+        if (memory.currentThoughts != null && memory.currentThoughts.Count > 0)
+        {
+            lines.Add("CURRENT THOUGHTS:");
+            int shown = 0;
+            foreach (var t in memory.currentThoughts)
+            {
+                lines.Add($"- {t.text} (salience {(int)(t.salience * 100)}%)");
+                if (++shown >= 5) break; // only the top few for token budget
+            }
+        }
+
+        return lines.Count == 0 ? "Nothing learnt yet." : string.Join("\n\n", lines);
     }
-    
+
     public void LogMemoryToFile()
     {
         string logPath = Path.Combine(Application.persistentDataPath, $"{getName()}_memory.txt");
+
         using (StreamWriter writer = new StreamWriter(logPath, false))
         {
-            writer.WriteLine($"Memory log for {getName()} at {System.DateTime.Now}\n");
+            writer.WriteLine($"=== Memory log for {getName()} ===");
+            writer.WriteLine($"Timestamp: {System.DateTime.Now}");
+            writer.WriteLine();
 
-            foreach (var entry in memoryMap)
+            // CORE PERSONALITY
+            writer.WriteLine("=== CORE PERSONALITY ===");
+            writer.WriteLine(memory.corePersonality?.Trim() ?? "(none)");
+            writer.WriteLine();
+
+            // SOCIAL MEMORY (what this NPC remembers about others)
+            writer.WriteLine("=== SOCIAL MEMORY ===");
+            if (memory.socialByNpc != null && memory.socialByNpc.Count > 0)
             {
-                writer.WriteLine($"[{entry.Key}]");
-                writer.WriteLine(entry.Value);
+                foreach (var kv in memory.socialByNpc)
+                {
+                    writer.WriteLine($"[{kv.Key}]");
+                    writer.WriteLine(kv.Value?.Trim() ?? "(no data)");
+                    writer.WriteLine();
+                }
+            }
+            else
+            {
+                writer.WriteLine("(no known NPCs yet)");
+                writer.WriteLine();
+            }
+
+            // CURRENT THOUGHTS
+            writer.WriteLine("=== CURRENT THOUGHTS ===");
+            if (memory.currentThoughts != null && memory.currentThoughts.Count > 0)
+            {
+                foreach (var t in memory.currentThoughts.OrderByDescending(t => t.salience))
+                {
+                    DateTime created = DateTimeOffset.FromUnixTimeSeconds(t.createdUnix).DateTime;
+                    writer.WriteLine($"- {t.text}");
+                    writer.WriteLine($"  → confidence: {t.confidence:F2}, salience: {t.salience:F2}, created: {created}");
+                    writer.WriteLine();
+                }
+            }
+            else
+            {
+                writer.WriteLine("(no active thoughts)");
                 writer.WriteLine();
             }
         }
-        Debug.Log($"Memory log written for {getName()} at {logPath}");
+
+        Debug.Log($"🧠 Memory log written for {getName()} at {logPath}");
+    }
+
+    public void DecayThoughts(float decay = 0.08f) // ~8% decay step
+    {
+        if (memory?.currentThoughts == null) return;
+
+        foreach (var t in memory.currentThoughts)
+            t.salience = Math.Max(0f, t.salience * (1f - decay));
+
+        memory.currentThoughts.RemoveAll(t => t.salience < 0.15f);
     }
 }
