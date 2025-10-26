@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using TMPro;
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -61,7 +62,8 @@ public class ConsoleChatbot : MonoBehaviour
                 try
                 {
                     // NPC-NPC or NPC responding in a user conversation
-                    string response = await client.SendChatMessageAsync(initialPrompt);
+                    string raw = await client.SendChatMessageAsync(initialPrompt);
+                    string response = StripSpeakerPrefix(raw, currentSpeaker.name);
 
                     if (session.CancellationTokenSource.Token.IsCancellationRequested)
                         break;
@@ -379,6 +381,26 @@ Rules:
                 .Take(12)
                 .ToList();
         }
+    }
+    private static string StripSpeakerPrefix(string text, string speakerName)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        // Patterns like: "Tim:", "**Tim:**", "TIM -", "Tim —"
+        var patterns = new[]
+        {
+            $@"^\s*\**{Regex.Escape(speakerName)}\**\s*[:\-–—]\s*",
+            @"^\s*\**assistant\**\s*[:\-–—]\s*",
+            @"^\s*\**npc\**\s*[:\-–—]\s*"
+        };
+
+        foreach (var p in patterns)
+            text = Regex.Replace(text, p, "", RegexOptions.IgnoreCase);
+
+        // Also strip surrounding quotes/backticks if present
+        text = Regex.Replace(text, @"^[`""]+|[`""]+$", "");
+
+        return text.Trim();
     }
 
     private void OnApplicationQuit()

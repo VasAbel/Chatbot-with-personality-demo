@@ -196,10 +196,12 @@ public class GptClient : ChatClient
             {(string.IsNullOrWhiteSpace(thoughtsSnippet) ? "- (none yet)\n" : thoughtsSnippet)}
 
             # Style & norms
+            - Reply as the character in natural prose.
+            - **Do not prefix your reply with a name or label** (no 'Tim:', 'Amy:', etc.).
             - Never dump your whole biography; reveal small pieces across turns.
             - If you don't remember someone (not in Social memory), treat as first meeting.
             - Debate respectfully; consider counter-arguments. If persuaded, say so and update your stance.
-            - Keep replies concise (1–3 sentences). Do not prefix with your name.
+            - Keep replies concise (1–3 sentences).
             ";
         
         conversationHistory.Add(new ChatMessage { Role = "system", Content = sys});
