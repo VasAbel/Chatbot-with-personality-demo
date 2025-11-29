@@ -174,12 +174,16 @@ public class GptClient : ChatClient
         foreach (var kv in currentSpeaker.memory.socialByNpc)
             socialSnippet += $"- {kv.Key}: {kv.Value}\n";
 
-        string thoughtsSnippet = "";
-        int shown = 0;
-        foreach (var t in currentSpeaker.memory.currentThoughts.OrderByDescending(t => t.salience))
+        string thoughtsSnippet;
+        if (currentSpeaker.memory.currentThoughts == null || currentSpeaker.memory.currentThoughts.Count == 0)
         {
-            thoughtsSnippet += $"- {t.text}\n";
-            if (++shown >= 5) break;
+            thoughtsSnippet = "- (none yet)\n";
+        }
+        else
+        {
+            thoughtsSnippet = string.Join("\n", currentSpeaker.memory.currentThoughts.Select(t =>
+                $"- {t.text} [salience {Mathf.RoundToInt(t.salience * 100)}%, confidence {Mathf.RoundToInt(t.confidence * 100)}%]"
+            ));
         }
 
         string sys = $@"
@@ -193,7 +197,7 @@ public class GptClient : ChatClient
             {(string.IsNullOrWhiteSpace(socialSnippet) ? "- (none yet)\n" : socialSnippet)}
 
             # Current plans & thoughts (ephemeral; can be dropped/updated)
-            {(string.IsNullOrWhiteSpace(thoughtsSnippet) ? "- (none yet)\n" : thoughtsSnippet)}
+            {thoughtsSnippet}
 
             # Style & norms
             - Reply as the character in natural prose.
@@ -202,6 +206,9 @@ public class GptClient : ChatClient
             - If you don't remember someone (not in Social memory), treat as first meeting.
             - Debate respectfully; consider counter-arguments. If persuaded, say so and update your stance.
             - Keep replies concise (1–3 sentences).
+            - High-salience thoughts are more likely to come to mind; you may mention them more naturally.
+            - High-confidence thoughts: speak and plan decisively.
+            - Low-confidence thoughts: express uncertainty, openness to change, or doubt.
             ";
         
         conversationHistory.Add(new ChatMessage { Role = "system", Content = sys});

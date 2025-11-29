@@ -214,40 +214,142 @@ public class ConsoleChatbot : MonoBehaviour
 
         string baseInstr = @"
 You are a memory updater for a role-playing simulation.
-Reply with VALID JSON ONLY (no markdown fences, no commentary).
-Use this schema exactly:
+Reply with VALID JSON ONLY (no markdown, no commentary).
+Use exactly this schema:
 
 {
-  ""core"": { ""add"": [""...""], ""update"": [""...""], ""remove"": [""...""] },
-  ""social"": { ""NPC_NAME"": { ""summary"": ""..."" } },
-  ""thoughts"": { ""add"": [""...""], ""reinforce"": [""...""], ""drop"": [""...""] }
+  ""core"": {
+    ""add"":    [""...""],
+    ""update"": [{ ""old"": ""..."", ""new"": ""..."" }],
+    ""remove"": [""...""]
+  },
+  ""social"": {
+    ""NPC_NAME"": {
+      ""add"":    [""...""],
+      ""update"": [{ ""old"": ""..."", ""new"": ""..."" }],
+      ""remove"": [""...""]
+    }
+  },
+  ""thoughts"": {
+    ""add"":       [""...""],
+    ""reinforce"": [""...""],
+    ""drop"":      [""...""]
+  }
 }
 
-Rules:
+DEFINITIONS (very important):
+
+- core:
+  Facts about THIS NPC (self) that are **stable or long-term**:
+  profession, long-held preferences, deep values, recurring habits.
+  Core facts should still be true months or years later.
+  Never put information about other people into core.
+  Never put temporary plans, current projects, or ""currently ..."" sentences here.
+
+- social:
+  What THIS NPC believes about **other NPCs**:
+  their traits, habits, preferences, roles, and changes in their life.
+  Keys in ""social"" must be other NPC names only (never the self name).
+  Social items can include both stable and temporary facts, as long as they are about others.
+
+- thoughts:
+  Short-term or **evolving ideas/plans** of THIS NPC:
+  things they are currently considering, wanting to do, or thinking about.
+  These are volatile and can appear, change, or disappear quickly.
+  Use thoughts for items that contain phrases like ""currently"", ""thinking about"",
+  ""considering"", ""planning to"", ""wants to"", ""might"", ""soon"", etc.
+
+CLASSIFICATION RULES:
+
+- If a sentence describes **an ongoing plan, project, or idea** (anything with
+  ""currently"", ""thinking about"", ""considering"", ""planning"", ""wants to"" etc.),
+  it belongs in **thoughts**, NOT in core.
+
+- If a sentence is **biographical and time-insensitive** (e.g. job, long-term preference,
+  ""loves X"", ""often does Y"", ""values Z""), it belongs in **core**.
+
+- If a sentence describes someone else (another NPC), it belongs in **social**
+  under that NPC's name, never in core or thoughts.
+
+DUPLICATES, UPDATES, REMOVALS:
+
+- Before adding anything new, carefully compare with the existing memory:
+  - If the new info is basically the same meaning as an existing sentence,
+    do NOT put it in ""add"".
+    Instead, either:
+      * skip it, OR
+      * put it in ""update"" with { ""old"": existing_sentence, ""new"": improved_sentence }.
+
+- ""core.add"" and ""social[NAME].add"":
+  - Must contain only facts that are **not already present in any form** in the relevant section.
+
+- ""core.update"" and ""social[NAME].update"":
+  - Use an object { ""old"": ""..."", ""new"": ""..."" }.
+  - ""old"" should be copied from an existing sentence,
+    taken from PREVIOUS CORE or PREVIOUS SOCIAL.
+  - ""new"" is the updated or refined version that should replace ""old"".
+
+- ""core.remove"" and ""social[NAME].remove"":
+  - List facts that are clearly contradicted or explicitly abandoned
+    by what happened in the conversation OR by items you are adding/updating now.
+  - E.g. if you add a new fact that directly conflicts with an old one,
+    include the old one in ""remove"".
+
+- When deciding what to remove, consider:
+  - the previous memory AND
+  - the facts you are about to add or update in this same JSON.
+  Anything clearly inconsistent with the new state should be removed.
+
+THOUGHTS-SPECIFIC RULES:
+
+- ""thoughts.add"": new short-term ideas/plans of this NPC.
+- ""thoughts.reinforce"": thoughts already present that were repeated or strongly supported.
+- ""thoughts.drop"": thoughts that now feel outdated, unimportant, or clearly abandoned.
+
+GENERAL RULES:
+
 - Keep strings concise (< 120 chars).
-- No duplicates.
-- Move item from thoughts → core only if it seems stable/persistent.
-- If a belief is revised, update or remove the old one.
-- Thoughts = short-term plans / evolving ideas.
-- Limit each list to at most 3 items (omit empty lists).";
+- Avoid near-duplicates; do not restate the same idea with slightly different wording.
+- ""core"", ""social"", and ""thoughts"" must always be JSON OBJECTS, not arrays.
+- If there are no changes for a section, you may either:
+  - omit that section completely, OR
+  - include it as an empty object: {}.
+- Limit each list (core.add, core.update, core.remove,
+  each social[NAME].add/update/remove, thoughts.add/reinforce/drop) to at most 3 items.
+";
+
+
 
         string promptFor(NPC self, NPC partner) => $@"
-        NPC: {self.getName()}
-        Partner: {partner.getName()}
+Self Name: {self.getName()}
+Partner in this conversation: {partner.getName()}
 
-        PREVIOUS CORE:
-        {self.memory.corePersonality}
+Previous CORE (about {self.getName()} only, long-term traits):
+{self.memory.corePersonality}
 
-        PREVIOUS SOCIAL:
-        {string.Join("\n", self.memory.socialByNpc.Select(kv => $"{kv.Key}: {kv.Value}"))}
+Previous SOCIAL (what {self.getName()} believes about others):
+{string.Join("\n\n", self.memory.socialByNpc.Select(kv =>
+    $"{kv.Key}:\n{kv.Value}"))}
 
-        PREVIOUS THOUGHTS:
-        {string.Join("\n", self.memory.currentThoughts.Select(t => $"- {t.text} (salience {(int)(t.salience * 100)}%)"))}
+Previous THOUGHTS (short-term plans/ideas of {self.getName()}):
+{string.Join("\n", self.memory.currentThoughts.Select(t =>
+    $"- {t.text} (salience {Mathf.RoundToInt(t.salience * 100)}%, confidence {Mathf.RoundToInt(t.confidence * 100)}%)"
+))}
 
-        CONVERSATION:
-        {fullConversation}
+Conversation (latest session, including speaker names):
+{fullConversation}
 
-        Return the JSON object now.";
+Task:
+- Decide what to add, update, or remove in core, social, and thoughts.
+- Only consider information that was actually revealed or implied in THIS conversation.
+- Remember:
+  - core & thoughts are ONLY about {self.getName()},
+  - social is ONLY about others (never {self.getName()}).
+- Use the JSON schema exactly as described above (with update objects {{ ""old"", ""new"" }}).
+
+Return ONLY the JSON object now.";
+
+
 
         string json1, json2;
 
@@ -279,10 +381,34 @@ Rules:
         public Dictionary<string, SocialDelta> social;
         public ThoughtsDelta thoughts;
 
-        [Serializable] public class CoreDelta { public List<string> add; public List<string> update; public List<string> remove; }
-        [Serializable] public class SocialDelta { public string summary; }
-        [Serializable] public class ThoughtsDelta { public List<string> add; public List<string> reinforce; public List<string> drop; }
+        [Serializable] public class UpdatePair
+        {
+            public string old;
+            public string @new;
+        }
+
+        [Serializable] public class CoreDelta
+        {
+            public List<string> add;
+            public List<UpdatePair> update;
+            public List<string> remove;
+        }
+
+        [Serializable] public class SocialDelta
+        {
+            public List<string> add;
+            public List<UpdatePair> update;
+            public List<string> remove;
+        }
+
+        [Serializable] public class ThoughtsDelta
+        {
+            public List<string> add;
+            public List<string> reinforce;
+            public List<string> drop;
+        }
     }
+
 
     private void ApplyMemoryJson(NPC npc, string json)
     {
@@ -300,88 +426,355 @@ Rules:
         }
         if (delta == null) return;
 
+        // =========================
         // CORE
+        // =========================
         if (delta.core != null)
         {
-            // super simple core: treat it as bullet text; append adds/updates; remove lines that contain the string
-            var lines = npc.memory.corePersonality.Split('\n').ToList();
+            // Split existing core into lines, ignore empties
+            var lines = string.IsNullOrWhiteSpace(npc.memory.corePersonality)
+                ? new List<string>()
+                : npc.memory.corePersonality
+                    .Split('\n')
+                    .Select(l => l.TrimEnd('\r'))
+                    .Where(l => !string.IsNullOrWhiteSpace(l))
+                    .ToList();
 
-            void AppendList(List<string> list)
+            // Helper: strip "- " prefix and whitespace
+            string StripBullet(string s)
             {
-                if (list == null) return;
-                foreach (var s in list)
-                    if (!string.IsNullOrWhiteSpace(s) && !lines.Any(l => l.IndexOf(s, StringComparison.OrdinalIgnoreCase) >= 0))
-                        lines.Add("- " + s.Trim());
+                if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+                return s.Trim().TrimStart('-', ' ').Trim();
             }
 
-            AppendList(delta.core.add);
-            AppendList(delta.core.update);
-
+            // 1) explicit removals first
             if (delta.core.remove != null)
-                lines.RemoveAll(l => delta.core.remove.Any(r => l.IndexOf(r, StringComparison.OrdinalIgnoreCase) >= 0));
+            {
+                foreach (var r in delta.core.remove.Where(x => !string.IsNullOrWhiteSpace(x)))
+                {
+                    var target = StripBullet(r);
+                    lines.RemoveAll(l =>
+                    {
+                        var raw = StripBullet(l);
+                        return raw.Equals(target, StringComparison.OrdinalIgnoreCase)
+                            || RoughlySameFact(raw, target);
+                    });
+                }
+            }
+
+            // Helper: add bullet if not already present (by exact or roughly-same text)
+            void AddIfNotExists(string fact)
+            {
+                if (string.IsNullOrWhiteSpace(fact)) return;
+                var target = StripBullet(fact);
+
+                bool exists = lines.Any(l =>
+                {
+                    var raw = StripBullet(l);
+                    return raw.Equals(target, StringComparison.OrdinalIgnoreCase)
+                        || RoughlySameFact(raw, target);
+                });
+
+                if (!exists)
+                    lines.Add("- " + target);
+            }
+
+            // 2) updates: explicit { old, new }
+            if (delta.core.update != null)
+            {
+                foreach (var u in delta.core.update)
+                {
+                    if (u == null) continue;
+                    var oldText = StripBullet(u.old);
+                    var newText = StripBullet(u.@new);
+
+                    if (string.IsNullOrWhiteSpace(newText)) continue;
+
+                    // If we have an old to replace, try to find it
+                    if (!string.IsNullOrWhiteSpace(oldText))
+                    {
+                        int idx = lines.FindIndex(l =>
+                        {
+                            var raw = StripBullet(l);
+                            return raw.Equals(oldText, StringComparison.OrdinalIgnoreCase)
+                                || RoughlySameFact(raw, oldText);
+                        });
+
+                        if (idx >= 0)
+                        {
+                            lines[idx] = "- " + newText;
+                            continue;
+                        }
+                    }
+
+                    // If no matching old found, just treat as an add
+                    AddIfNotExists(newText);
+                }
+            }
+
+            // 3) additions: only add if not already present
+            if (delta.core.add != null)
+            {
+                foreach (var a in delta.core.add.Where(x => !string.IsNullOrWhiteSpace(x)))
+                {
+                    AddIfNotExists(a);
+                }
+            }
 
             // keep core short
-            if (lines.Count > 18) lines = lines.Take(18).ToList();
+            if (lines.Count > 18)
+                lines = lines.Take(18).ToList();
+
             npc.memory.corePersonality = string.Join("\n", lines);
         }
 
+        // =========================
         // SOCIAL
+        // =========================
         if (delta.social != null)
         {
-            foreach (var kv in delta.social)
+            if (npc.memory.socialByNpc == null)
+                npc.memory.socialByNpc = new Dictionary<string, string>();
+
+            foreach (var entry in delta.social)
             {
-                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
-                npc.memory.socialByNpc[kv.Key] = kv.Value.summary?.Trim();
+                var otherName = entry.Key?.Trim();
+                var sDelta = entry.Value;
+
+                if (string.IsNullOrEmpty(otherName) || sDelta == null)
+                    continue;
+
+                npc.memory.socialByNpc.TryGetValue(otherName, out var existing);
+
+                var lines = string.IsNullOrWhiteSpace(existing)
+                    ? new List<string>()
+                    : existing
+                        .Split('\n')
+                        .Select(l => l.TrimEnd('\r'))
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
+                        .ToList();
+
+                string StripBullet(string s)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+                    return s.Trim().TrimStart('-', ' ').Trim();
+                }
+
+                void AddIfNotExists(string fact)
+                {
+                    if (string.IsNullOrWhiteSpace(fact)) return;
+                    var target = StripBullet(fact);
+
+                    bool exists = lines.Any(l =>
+                    {
+                        var raw = StripBullet(l);
+                        return raw.Equals(target, StringComparison.OrdinalIgnoreCase)
+                            || RoughlySameFact(raw, target);
+                    });
+
+                    if (!exists)
+                        lines.Add("- " + target);
+                }
+
+                void ApplyRemoves(List<string> removes)
+                {
+                    if (removes == null) return;
+
+                    foreach (var r in removes.Where(x => !string.IsNullOrWhiteSpace(x)))
+                    {
+                        var target = StripBullet(r);
+                        lines.RemoveAll(line =>
+                        {
+                            var raw = StripBullet(line);
+                            return raw.Equals(target, StringComparison.OrdinalIgnoreCase)
+                                || RoughlySameFact(raw, target);
+                        });
+                    }
+                }
+
+                void ApplyUpdates(List<MemoryDeltaRoot.UpdatePair> updates)
+                {
+                    if (updates == null) return;
+
+                    foreach (var u in updates)
+                    {
+                        if (u == null) continue;
+                        var oldText = StripBullet(u.old);
+                        var newText = StripBullet(u.@new);
+
+                        if (string.IsNullOrWhiteSpace(newText)) continue;
+
+                        if (!string.IsNullOrWhiteSpace(oldText))
+                        {
+                            int idx = lines.FindIndex(line =>
+                            {
+                                var raw = StripBullet(line);
+                                return raw.Equals(oldText, StringComparison.OrdinalIgnoreCase)
+                                    || RoughlySameFact(raw, oldText);
+                            });
+
+                            if (idx >= 0)
+                            {
+                                lines[idx] = "- " + newText;
+                                continue;
+                            }
+                        }
+
+                        // No matching old → treat as add
+                        AddIfNotExists(newText);
+                    }
+                }
+
+                void ApplyAdds(List<string> adds)
+                {
+                    if (adds == null) return;
+                    foreach (var s in adds)
+                        AddIfNotExists(s);
+                }
+
+                // Order: remove → update → add
+                ApplyRemoves(sDelta.remove);
+                ApplyUpdates(sDelta.update);
+                ApplyAdds(sDelta.add);
+
+                // Keep per-person social memory bounded
+                if (lines.Count > 18)
+                    lines = lines.Take(18).ToList();
+
+                npc.memory.socialByNpc[otherName] = string.Join("\n", lines);
             }
         }
 
+        // =========================
         // THOUGHTS
+        // =========================
         if (delta.thoughts != null)
         {
-            npc.DecayThoughts(0.0f); // no decay right now, changes are explicit
-            // add
+            // Apply some decay each update (you can tune this)
+            npc.DecayThoughts(1.0f);
+
+            if (npc.memory.currentThoughts == null)
+                npc.memory.currentThoughts = new List<Thought>();
+
+            var thoughts = npc.memory.currentThoughts;
+
+            Thought FindSimilar(string text)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return null;
+                var trimmed = text.Trim();
+                return thoughts.FirstOrDefault(t => RoughlySameFact(t.text, trimmed));
+            }
+
+            // ADD: create new or strengthen similar
             if (delta.thoughts.add != null)
             {
                 foreach (var s in delta.thoughts.add)
                 {
                     if (string.IsNullOrWhiteSpace(s)) continue;
-                    npc.memory.currentThoughts.Add(new Thought
+                    var trimmed = s.Trim();
+
+                    var existing = FindSimilar(trimmed);
+                    if (existing != null)
                     {
-                        text = s.Trim(),
-                        confidence = 0.6f,
-                        salience = 0.6f,
-                        createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                    });
+                        // treat as implicit reinforce
+                        existing.salience   = Mathf.Clamp01(existing.salience + 0.2f);
+                        existing.confidence = Mathf.Clamp01(existing.confidence + 0.1f);
+                    }
+                    else
+                    {
+                        thoughts.Add(new Thought
+                        {
+                            text        = trimmed,
+                            confidence  = 0.6f,
+                            salience    = 0.6f,
+                            createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                        });
+                    }
                 }
             }
-            // reinforce
+
+            // REINFORCE: strengthen existing similar thoughts
             if (delta.thoughts.reinforce != null)
             {
                 foreach (var s in delta.thoughts.reinforce)
                 {
-                    var t = npc.memory.currentThoughts.FirstOrDefault(x =>
-                        x.text.IndexOf(s ?? "", StringComparison.OrdinalIgnoreCase) >= 0);
-                    if (t != null)
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    var existing = FindSimilar(s);
+                    if (existing != null)
                     {
-                        t.salience = Mathf.Clamp01(t.salience + 0.2f);
-                        t.confidence = Mathf.Clamp01(t.confidence + 0.2f);
+                        existing.salience   = Mathf.Clamp01(existing.salience + 0.2f);
+                        existing.confidence = Mathf.Clamp01(existing.confidence + 0.2f);
                     }
                 }
             }
-            // drop
+
+            // DROP: remove similar thoughts
             if (delta.thoughts.drop != null)
             {
-                npc.memory.currentThoughts.RemoveAll(x =>
-                    delta.thoughts.drop.Any(s => x.text.IndexOf(s ?? "", StringComparison.OrdinalIgnoreCase) >= 0));
+                foreach (var s in delta.thoughts.drop)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    var trimmed = s.Trim();
+                    thoughts.RemoveAll(t => RoughlySameFact(t.text, trimmed));
+                }
             }
 
             // keep only top N by salience to control tokens
-            npc.memory.currentThoughts = npc.memory.currentThoughts
+            npc.memory.currentThoughts = thoughts
                 .OrderByDescending(t => t.salience)
-                .Take(12)
+                .Take(7)
                 .ToList();
         }
     }
+
+
+    private static bool RoughlySameFact(string oldLine, string newLine)
+    {
+        if (string.IsNullOrWhiteSpace(oldLine) || string.IsNullOrWhiteSpace(newLine))
+            return false;
+
+        // Normalize: remove bullet, trim, strip trailing punctuation like . ! ? ; :
+        string Normalize(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+
+            s = s.TrimStart('-', ' ').Trim(); // remove leading bullet and spaces
+            s = s.Trim();                     // general trim
+            s = s.TrimEnd('.', '!', '?', ';', ':', '…'); // strip common end punctuation
+            return s.Trim();
+        }
+
+        var o = Normalize(oldLine);
+        var n = Normalize(newLine);
+
+        if (string.IsNullOrEmpty(o) || string.IsNullOrEmpty(n))
+            return false;
+
+        // Exact match after normalization
+        if (o.Equals(n, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // One contains the other (ignoring final punctuation)
+        if (n.IndexOf(o, StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+
+        if (o.IndexOf(n, StringComparison.OrdinalIgnoreCase) >= 0)
+            return true;
+
+        // Prefix comparison on first ~30 chars
+        int prefix = Math.Min(30, Math.Min(o.Length, n.Length));
+        if (prefix >= 10)
+        {
+            var oPref = o.Substring(0, prefix);
+            var nPref = n.Substring(0, prefix);
+            if (oPref.Equals(nPref, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
+    }
+
+
     private static string StripSpeakerPrefix(string text, string speakerName)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;

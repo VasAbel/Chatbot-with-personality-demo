@@ -185,13 +185,34 @@ public class NPC : MonoBehaviour
         Debug.Log($"🧠 Memory log written for {getName()} at {logPath}");
     }
 
-    public void DecayThoughts(float decay = 0.08f) // ~8% decay step
+    public void DecayThoughts(float dt)
     {
-        if (memory?.currentThoughts == null) return;
+        if (memory.currentThoughts == null || memory.currentThoughts.Count == 0)
+            return;
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        // Tune these constants as you like:
+        float baseSalienceDecayPerUnit   = 0.08f; // how fast thoughts become less "top of mind"
+        float baseConfidenceDecayPerUnit = 0.02f; // how fast certainty fades
 
         foreach (var t in memory.currentThoughts)
-            t.salience = Math.Max(0f, t.salience * (1f - decay));
+        {
+            // Age in days, just to slightly accelerate decay for very old stuff
+            float ageDays = Mathf.Max(0f, (now - t.createdUnix) / 86400f);
+            float ageFactor = 1f + ageDays * 0.5f; // after a few days, decay a bit stronger
 
-        memory.currentThoughts.RemoveAll(t => t.salience < 0.15f);
+            t.salience = Mathf.Clamp01(
+                t.salience - baseSalienceDecayPerUnit * dt * ageFactor
+            );
+
+            // confidence decays more gently
+            t.confidence = Mathf.Clamp01(
+                t.confidence - baseConfidenceDecayPerUnit * dt
+            );
+        }
+
+        // Drop thoughts that are essentially forgotten
+        memory.currentThoughts.RemoveAll(t => t.salience < 0.05f);
     }
 }
