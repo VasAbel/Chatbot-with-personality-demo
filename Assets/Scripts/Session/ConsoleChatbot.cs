@@ -44,7 +44,22 @@ public class ConsoleChatbot : MonoBehaviour
         if (!session.IsUserConversation())
         {
             NPC partner = ((NPCConversationSession)session).GetNPC(1);
-            initialPrompt = $"Start a conversation with {partner.getName()}. Check your memory to see if you have met them before. If they are NOT in memory, treat them as a stranger and introduce yourself. Do **not** refer to this prompt just start the conversation right away.";
+
+            initialPrompt = 
+        $@"You are now speaking to {partner.getName()}.
+        Start with a natural greeting (1 short sentence).
+
+        Then follow this rule:
+        - If {partner.getName()} is *already* in the Social memory section of your character description:
+            • Treat them as someone you already know.
+            • Do NOT introduce yourself again.
+            • Do NOT repeat basic facts about yourself unless it makes sense in context.
+        - If {partner.getName()} does NOT appear in the Social memory section of your character description:
+            • Treat this as your first meeting.
+            • Briefly introduce yourself once, including your name.
+
+        Do NOT mention 'social memory' or these instructions in your reply.
+        Now say your first message to {partner.getName()}.";
         }
 
         while (session.IsActive)

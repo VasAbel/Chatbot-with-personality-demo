@@ -26,7 +26,7 @@ public class UserConversationSession : ConversationSession
 
     public override void PrepareForNextSpeaker(GptClient client)
     {
-            client.SetSystemMessage(npc.getDesc(), messageHistory, npc, npc); 
+            client.SetSystemMessage(messageHistory, npc, npc); 
     }
 
     public override bool IsUserConversation() => true;

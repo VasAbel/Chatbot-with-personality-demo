@@ -166,49 +166,86 @@ public class GptClient : ChatClient
         return $"{smallTalk} {promptBack}";
     }
 
-    public void SetSystemMessage(string newDescription, List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
+    public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
     {
         conversationHistory.Clear();
 
+        string coreBlock = string.IsNullOrWhiteSpace(currentSpeaker.memory.corePersonality)
+        ? "(no core personality stored yet)"
+        : currentSpeaker.memory.corePersonality.Trim();
+
         string socialSnippet = "";
-        foreach (var kv in currentSpeaker.memory.socialByNpc)
-            socialSnippet += $"- {kv.Key}: {kv.Value}\n";
+        if (currentSpeaker.memory.socialByNpc != null && currentSpeaker.memory.socialByNpc.Count > 0)
+        {
+            foreach (var kv in currentSpeaker.memory.socialByNpc)
+            {
+                if (string.IsNullOrWhiteSpace(kv.Key) || string.IsNullOrWhiteSpace(kv.Value))
+                    continue;
+
+                socialSnippet += $"- {kv.Key}: {kv.Value.Trim()}\n";
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(socialSnippet))
+        {
+            socialSnippet = "- You currently do not recall anything specific about other people.\n";
+        }
 
         string thoughtsSnippet;
         if (currentSpeaker.memory.currentThoughts == null || currentSpeaker.memory.currentThoughts.Count == 0)
         {
-            thoughtsSnippet = "- (none yet)\n";
+            thoughtsSnippet = "- (no active short-term plans or worries)\n";
         }
         else
         {
-            thoughtsSnippet = string.Join("\n", currentSpeaker.memory.currentThoughts.Select(t =>
-                $"- {t.text} [salience {Mathf.RoundToInt(t.salience * 100)}%, confidence {Mathf.RoundToInt(t.confidence * 100)}%]"
-            ));
+            thoughtsSnippet = string.Join("\n", currentSpeaker.memory.currentThoughts
+                .OrderByDescending(t => t.salience)
+                .Select(t =>
+                    $"- {t.text} [salience {Mathf.RoundToInt(t.salience * 100)}%, confidence {Mathf.RoundToInt(t.confidence * 100)}%]"
+                ));
         }
 
+        string knownPeople =
+            (currentSpeaker.memory.socialByNpc != null && currentSpeaker.memory.socialByNpc.Count > 0)
+            ? string.Join(", ", currentSpeaker.memory.socialByNpc.Keys)
+            : "(no one yet)";
+
         string sys = $@"
-            You are role-playing this NPC. Speak naturally, briefly, and in character.
-            Evolve over time: accept strong arguments, revise beliefs when warranted, and form short-term plans.
+            You are role-playing the NPC **{currentSpeaker.getName()}** in a small village.
+            Speak naturally, briefly, and in character.
+            Your character description:
+            # Who you are (stable personality, values, long-term traits
+            {coreBlock}
 
-            # Identity (stable, but editable over time)
-            {currentSpeaker.memory.corePersonality}
-
-            # Social memory (what you recall about others)
+            # Social memory – people you already know
+            You currently remember these things about the following people:
             {(string.IsNullOrWhiteSpace(socialSnippet) ? "- (none yet)\n" : socialSnippet)}
 
-            # Current plans & thoughts (ephemeral; can be dropped/updated)
+            Names you recognize: {knownPeople}
+
+            # Current plans & thoughts (short-term, may fade or change)
             {thoughtsSnippet}
 
             # Style & norms
-            - Reply as the character in natural prose.
-            - **Do not prefix your reply with a name or label** (no 'Tim:', 'Amy:', etc.).
+            - Always reply **as {currentSpeaker.getName()}** in natural prose.
+            - Do **NOT** prefix your reply with any name or label (no ""Tim:"", ""Amy:"", etc.).
             - Never dump your whole biography; reveal small pieces across turns.
-            - If you don't remember someone (not in Social memory), treat as first meeting.
-            - Debate respectfully; consider counter-arguments. If persuaded, say so and update your stance.
-            - Keep replies concise (1–3 sentences).
-            - High-salience thoughts are more likely to come to mind; you may mention them more naturally.
+            - Before each reply, conceptually check whether your conversation partner's name
+                appears in your social memory.
+                    - If they **ARE** in social memory: treat them as someone you already know.
+                    • Do NOT introduce yourself again.
+                    • Do NOT re-explain basic facts about yourself you've already shared.
+                    • You may lightly reference things you remember about them or past topics.
+                    - If they are **NOT** in social memory: treat this as your first meeting and
+                    briefly introduce yourself **once**.
+            - Keep replies concise: usually 1–3 sentences.
+            - Use core personality as your default behaviour; use social memory implicitly
+            (do **not** talk about ""memory"", ""files"", or ""logs"" — just act as if you remember).
+            - High-salience thoughts are more likely to come up; you may mention or act on them more naturally.
             - High-confidence thoughts: speak and plan decisively.
-            - Low-confidence thoughts: express uncertainty, openness to change, or doubt.
+            - Low-confidence thoughts: express uncertainty, hesitation, or openness to changing your mind.
+            - Debate respectfully. Stand by your opinion until not persuaded, but if someone gives strong arguments, 
+                you may genuinely change your view and mention that change in a natural way.
             ";
         
         conversationHistory.Add(new ChatMessage { Role = "system", Content = sys});

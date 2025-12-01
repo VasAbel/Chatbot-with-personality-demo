@@ -38,16 +38,7 @@ public class NPCConversationSession : ConversationSession
     public override void PrepareForNextSpeaker(GptClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-
-        string memoryFormatted = newSpeaker.GetFormattedMemory();
-        string fullSystemMessage = newSpeaker.getDesc();
-        if (!string.IsNullOrEmpty(memoryFormatted))
-        {
-            fullSystemMessage +=
-            "\nYou also have access to memory about past conversations. This memory contains summaries of what you have learned so far about yourself (under your name) and others. Treat it as uncertain human recollections, not facts. If someone is **not mentioned** in this memory, you do **not** know them yet.\n"
-            + memoryFormatted + "\nAlways adapt your tone depending on whether you recognize someone from memory. When meeting someone for the first time (i.e., not in memory), introduce yourself naturally.";
-        }
-        client.SetSystemMessage(fullSystemMessage, messageHistory, newSpeaker, npc1);
+        client.SetSystemMessage(messageHistory, newSpeaker, npc1);
     }
 
     public override bool IsUserConversation() => false;
