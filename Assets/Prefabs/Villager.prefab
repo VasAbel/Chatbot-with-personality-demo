@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.0000000024008, y: 0.0021084, z: -0.0019798}
-  m_LocalScale: {x: 0.4829802, y: 0.7700055, z: 0.7700055}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6831893494353857128}
@@ -102,6 +102,9 @@ MonoBehaviour:
   isInConversation: 0
   isTalkingToUser: 0
   dailySchedule: []
+  memory:
+    corePersonality: 
+    currentThoughts: []
 --- !u!114 &-3129879752779511871
 MonoBehaviour:
   m_ObjectHideFlags: 0

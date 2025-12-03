@@ -16,8 +16,8 @@ public class NpcMovement : Movement
             agent.angularSpeed = 720f;
             agent.acceleration = 6f;
             agent.stoppingDistance = 0.02f;
-            agent.updateRotation = true;
-            agent.updateUpAxis = true;
+            agent.updateRotation = false;
+            agent.updateUpAxis = false;
         }
     }
 
@@ -49,6 +49,22 @@ public class NpcMovement : Movement
             else
             {
                 agent.isStopped = true;
+            }
+
+            if (agent.velocity.sqrMagnitude > 0.0001f)
+            {
+                Vector3 dir = new Vector3(agent.velocity.x, 0f, agent.velocity.z);
+                if (dir.sqrMagnitude > 0.0001f)
+                {
+                    Quaternion look = Quaternion.LookRotation(dir, Vector3.up);
+                    transform.rotation = look;
+                }
+            }
+            else
+            {
+                // Optional: zero out any accidental tilt if it ever appears
+                var e = transform.rotation.eulerAngles;
+                transform.rotation = Quaternion.Euler(0f, e.y, 0f);
             }
         }
         else

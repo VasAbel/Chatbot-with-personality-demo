@@ -11,9 +11,11 @@ public class GptClient : ChatClient
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
     private readonly System.Random rng = new System.Random();
     string apiKey = "";
+    public bool UseLLM = true;
 
     void Start()
     {
+        UseLLM = false;
         apiKey = SecretManager.Instance.GetGPTSecrets();
         openAIApi = new OpenAIApi(apiKey);
     }
@@ -41,6 +43,13 @@ public class GptClient : ChatClient
     {
         // Add user's message to history
         conversationHistory.Add(new ChatMessage { Role = "user", Content = messageContent });
+
+        if (!UseLLM)
+        {
+            string fallback = GenerateFallbackReply(messageContent);
+            conversationHistory.Add(new ChatMessage { Role = "assistant", Content = fallback });
+            return;
+        }
 
         var request = new CreateChatCompletionRequest
         {
@@ -79,6 +88,12 @@ public class GptClient : ChatClient
     
     public async Task<string> RequestJsonAsync(string system, string user, int maxTokens = 500)
     {
+        if (!UseLLM)
+        {
+            // Return an empty valid JSON object so memory updater doesn't crash
+            return "{}";
+        }
+
         var req = new CreateChatCompletionRequest
         {
             Model = "gpt-4o-mini",        // cheaper, very good at JSON

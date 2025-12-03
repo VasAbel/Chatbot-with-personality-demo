@@ -689,6 +689,30 @@ PrefabInstance:
       propertyPath: m_Materials.Array.data[0]
       value: 
       objectReference: {fileID: 2100000, guid: 154e68bc7544f63468b10ddae4169098, type: 2}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7231014008884144463, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.9659604
@@ -810,6 +834,9 @@ MonoBehaviour:
   isInConversation: 0
   isTalkingToUser: 0
   dailySchedule: []
+  memory:
+    corePersonality: 
+    currentThoughts: []
 --- !u!54 &231953370
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -835,7 +862,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!114 &231953375
 MonoBehaviour:
@@ -1446,6 +1473,30 @@ PrefabInstance:
       propertyPath: m_Materials.Array.data[0]
       value: 
       objectReference: {fileID: 2100000, guid: 523b09dad06746640a209bdae506ff64, type: 2}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7231014008884144463, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_LocalScale.x
       value: 0.9659604
@@ -1551,6 +1602,9 @@ MonoBehaviour:
   isInConversation: 0
   isTalkingToUser: 0
   dailySchedule: []
+  memory:
+    corePersonality: 
+    currentThoughts: []
 --- !u!114 &728550591
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1591,7 +1645,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!114 &728550596
 MonoBehaviour:
@@ -1686,6 +1740,30 @@ PrefabInstance:
     - target: {fileID: 3959002714789767481, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6831893494353857128, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7231014008884144463, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_LocalScale.x
@@ -2058,7 +2136,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 1
   m_Interpolate: 0
-  m_Constraints: 0
+  m_Constraints: 80
   m_CollisionDetection: 0
 --- !u!114 &1000350521
 MonoBehaviour:
@@ -3056,6 +3134,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a53a234f0436e0d4296f83577b8e042f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  UseLLM: 1
 --- !u!4 &1259602433
 Transform:
   m_ObjectHideFlags: 0
