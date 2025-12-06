@@ -46,26 +46,44 @@ public class ChatBubble : MonoBehaviour
     {
         if (duration > 0f) lifetime = duration;
 
+        var panelRt = (RectTransform)panel.transform;
+        var textRt  = (RectTransform)text.transform;
+
+        // Make sure pivots/anchors are in a sane state
+        panelRt.anchorMin = panelRt.anchorMax = new Vector2(0.5f, 0f);
+        panelRt.pivot     = new Vector2(0.5f, 0f);
+
+        textRt.anchorMin = textRt.anchorMax = new Vector2(0.5f, 0.5f);
+        textRt.pivot     = new Vector2(0.5f, 0.5f);
+
         text.enableWordWrapping = true;
         text.text = content;
         text.ForceMeshUpdate();
 
-        // Clamp width by enabling TMP auto-sizing and letting layout settle
-        var rt = text.GetComponent<RectTransform>();
-        var panelRt = panel.GetComponent<RectTransform>();
+        // How wide may the TEXT itself be inside the bubble?
+        float innerMaxWidth = maxWidth; // panel width will be inner + padding*2
 
-        // Set a preferred width cap
-        var preferred = text.GetPreferredValues(content, maxWidth, 0f);
-        float w = Mathf.Min(preferred.x + padding.x * 2f, maxWidth + padding.x * 2f);
-        float h = text.preferredHeight + padding.y * 2f;
+        // Ask TMP what size it *wants* with wrapping
+        Vector2 preferred = text.GetPreferredValues(content, innerMaxWidth, 0f);
 
-        panelRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, w);
-        panelRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, h);
+        float textWidth  = Mathf.Min(preferred.x, innerMaxWidth);
+        float textHeight = preferred.y;
 
-        // start lifecycle
+        // Size the text box
+        textRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, textWidth);
+        textRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   textHeight);
+
+        // Size the panel around the text + padding
+        float panelWidth  = textWidth  + padding.x * 2f;
+        float panelHeight = textHeight + padding.y * 2f;
+
+        panelRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, panelWidth);
+        panelRt.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,   panelHeight);
+
         StopAllCoroutines();
         StartCoroutine(LifeCoroutine());
     }
+
 
     private IEnumerator LifeCoroutine()
     {

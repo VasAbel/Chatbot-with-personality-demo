@@ -877,8 +877,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.2, z: 0}
+  verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
+  neighborRadius: 1.5
+  sideOffsetAmount: 5
 --- !u!195 &231953376
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1051,7 +1053,7 @@ GameObject:
   - component: {fileID: 346967017}
   - component: {fileID: 346967016}
   m_Layer: 0
-  m_Name: Townhall
+  m_Name: School
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1088,7 +1090,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7093d8dad0264a2478faa25764c9ec6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  placeID: Townhall
+  placeID: School
 --- !u!135 &346967017
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -1246,7 +1248,7 @@ GameObject:
   - component: {fileID: 603782816}
   - component: {fileID: 603782815}
   m_Layer: 0
-  m_Name: Market
+  m_Name: WoodworkingShop
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1283,7 +1285,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7093d8dad0264a2478faa25764c9ec6f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  placeID: Market
+  placeID: WoodworkingShop
 --- !u!135 &603782816
 SphereCollider:
   m_ObjectHideFlags: 0
@@ -1673,8 +1675,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.2, z: 0}
+  verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
+  neighborRadius: 1.5
+  sideOffsetAmount: 5
 --- !u!195 &728550600
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -2151,8 +2155,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.2, z: 0}
+  verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
+  neighborRadius: 1.5
+  sideOffsetAmount: 5
 --- !u!195 &1000350522
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -3134,7 +3140,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a53a234f0436e0d4296f83577b8e042f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  UseLLM: 1
 --- !u!4 &1259602433
 Transform:
   m_ObjectHideFlags: 0

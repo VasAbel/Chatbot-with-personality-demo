@@ -41,6 +41,7 @@ public class ConsoleChatbot : MonoBehaviour
 
         string initialPrompt = "";
 
+        Debug.Log("!sess.IsUserConv");
         if (!session.IsUserConversation())
         {
             NPC partner = ((NPCConversationSession)session).GetNPC(1);
@@ -77,7 +78,9 @@ public class ConsoleChatbot : MonoBehaviour
                 try
                 {
                     // NPC-NPC or NPC responding in a user conversation
+                    
                     string raw = await client.SendChatMessageAsync(initialPrompt);
+
                     string response = StripSpeakerPrefix(raw, currentSpeaker.name);
 
                     if (session.CancellationTokenSource.Token.IsCancellationRequested)

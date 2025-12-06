@@ -11,12 +11,31 @@ public class GptClient : ChatClient
     private List<ChatMessage> conversationHistory = new List<ChatMessage>();
     private readonly System.Random rng = new System.Random();
     string apiKey = "";
-    public bool UseLLM = true;
 
-    void Start()
+    private void EnsureClientInitialized()
     {
-        UseLLM = false;
-        apiKey = SecretManager.Instance.GetGPTSecrets();
+        if (openAIApi != null)
+            return;
+
+        // Try to get API key if not set yet
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            var sm = SecretManager.Instance;
+            if (sm == null)
+            {
+                Debug.LogError("SecretManager.Instance is null. Cannot initialize OpenAI client.");
+                return;
+            }
+
+            apiKey = sm.GetGPTSecrets();
+        }
+
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            Debug.LogError("OpenAI API key is missing or empty. Cannot initialize OpenAI client.");
+            return;
+        }
+
         openAIApi = new OpenAIApi(apiKey);
     }
 
@@ -44,8 +63,10 @@ public class GptClient : ChatClient
         // Add user's message to history
         conversationHistory.Add(new ChatMessage { Role = "user", Content = messageContent });
 
-        if (!UseLLM)
+        EnsureClientInitialized();
+        if (openAIApi == null)
         {
+            // fallback only
             string fallback = GenerateFallbackReply(messageContent);
             conversationHistory.Add(new ChatMessage { Role = "assistant", Content = fallback });
             return;
@@ -85,13 +106,53 @@ public class GptClient : ChatClient
         }
 
     }
+
+    public async Task<string> RequestGenericJsonAsync(string system, string user, string fallbackJson = "{}",
+                                                  int maxTokens = 500)
+    {
+        EnsureClientInitialized();
+
+        if (openAIApi == null)
+        {
+            Debug.LogWarning("OpenAI client not initialized; returning fallback JSON.");
+            return fallbackJson;
+        }
+
+        var req = new CreateChatCompletionRequest
+        {
+            Model = "gpt-4o-mini",
+            Messages = new List<ChatMessage>
+            {
+                new ChatMessage { Role = "system", Content = system },
+                new ChatMessage { Role = "user",   Content = user   }
+            },
+            MaxTokens = maxTokens,
+            Temperature = 0.2f,
+            ResponseFormat = new ResponseFormat { Type = "json_object" }
+        };
+
+        try
+        {
+            var resp = await openAIApi.CreateChatCompletion(req);
+            if (resp.Choices != null && resp.Choices.Count > 0)
+                return resp.Choices[0].Message.Content;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Generic JSON request failed: {ex.Message}");
+        }
+
+        return fallbackJson;  // safe fallback for non-memory JSON
+    }
+
     
     public async Task<string> RequestJsonAsync(string system, string user, int maxTokens = 500)
     {
-        if (!UseLLM)
+        EnsureClientInitialized();
+        if (openAIApi == null)
         {
-            // Return an empty valid JSON object so memory updater doesn't crash
-            return "{}";
+            Debug.LogWarning("OpenAI client not initialized; returning empty memory JSON.");
+            return @"{""core"":{},""social"":{},""thoughts"":{}}";
         }
 
         var req = new CreateChatCompletionRequest
@@ -116,7 +177,7 @@ public class GptClient : ChatClient
         var resp = await openAIApi.CreateChatCompletion(req);
         return resp.Choices != null && resp.Choices.Count > 0
             ? resp.Choices[0].Message.Content
-            : "{}";
+            : @"{""core"":{},""social"":{},""thoughts"":{}}";
     }
 
     private string Pick(string[] options) => options[rng.Next(options.Length)];
@@ -124,7 +185,7 @@ public class GptClient : ChatClient
     private string GenerateFallbackReply(string userMessage)
     {
         // Special case: first-turn starter used by ConsoleChatbot
-        if (userMessage.StartsWith("Start a conversation", StringComparison.OrdinalIgnoreCase))
+        if (userMessage.StartsWith("You are now speaking", StringComparison.OrdinalIgnoreCase))
         {
             var greet = Pick(new[]
             {

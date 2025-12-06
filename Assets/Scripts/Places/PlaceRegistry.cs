@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class PlaceRegistry : MonoBehaviour
@@ -31,4 +32,10 @@ public class PlaceRegistry : MonoBehaviour
         Debug.LogWarning($"Place '{name}' not found.");
         return null;
     }
+
+    public List<string> GetAllPlaceNames()
+    {
+        return places.Keys.ToList();
+    }
+
 }
