@@ -53,20 +53,26 @@ public class OrthoAutoFramer : MonoBehaviour
         var pos = b.center - forward * height;
         transform.position = pos;
 
-        // Compute required ortho size to fit bounds in camera’s view
-        // Project bounds extents onto camera right/up axes
+        float ProjectHalfExtent(Bounds b, Vector3 axis)
+        {
+            axis = new Vector3(Mathf.Abs(axis.x), Mathf.Abs(axis.y), Mathf.Abs(axis.z));
+            return b.extents.x * axis.x + b.extents.y * axis.y + b.extents.z * axis.z;
+        }
+
         Vector3 right = transform.right;
-        Vector3 up = transform.up;
-        float halfWidth = Mathf.Abs(Vector3.Dot(b.extents, right)) * 2f;
-        float halfHeight = Mathf.Abs(Vector3.Dot(b.extents, up)) * 2f;
+        Vector3 up    = transform.up;
+
+        // These are HALF-sizes in camera axes
+        float halfWidth  = ProjectHalfExtent(b, right);
+        float halfHeight = ProjectHalfExtent(b, up);
 
         float aspect = cam.aspect;
-        // Ortho size is half of vertical size
-        float sizeByHeight = (halfHeight * (1f + paddingPercent)) * 0.5f;
-        float sizeByWidth = (halfWidth * (1f + paddingPercent)) * 0.5f / aspect;
-        float targetSize = Mathf.Clamp(Mathf.Max(sizeByHeight, sizeByWidth), minSize, maxSize);
 
-        targetSize *= 0.5f;
+        // Ortho size is HALF of vertical span
+        float sizeByHeight = halfHeight * (1f + paddingPercent);
+        float sizeByWidth  = (halfWidth * (1f + paddingPercent)) / aspect;
+
+        float targetSize = Mathf.Clamp(Mathf.Max(sizeByHeight, sizeByWidth), minSize, maxSize);
         cam.orthographicSize = targetSize;
     }
 

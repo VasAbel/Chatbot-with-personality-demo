@@ -6,7 +6,7 @@ public class NPCGlobalTimer : MonoBehaviour
 {
     public float secondsPerHour = 60f; // 1 minute = 1 game hour
     private float timer = 0f;
-    private int currentHour = 0;
+    private int currentHour = 8;
 
     private List<NPC> registeredNPCs = new List<NPC>();
 
