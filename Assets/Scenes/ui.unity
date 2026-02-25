@@ -892,7 +892,7 @@ MonoBehaviour:
   verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
   neighborRadius: 3
-  sideOffsetAmount: 10
+  sideOffsetAmount: 3
 --- !u!195 &231953376
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -1800,7 +1800,7 @@ MonoBehaviour:
   verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
   neighborRadius: 3
-  sideOffsetAmount: 10
+  sideOffsetAmount: 3
 --- !u!195 &728550600
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -2417,7 +2417,7 @@ MonoBehaviour:
   verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
   neighborRadius: 3
-  sideOffsetAmount: 10
+  sideOffsetAmount: 3
 --- !u!195 &1000350522
 NavMeshAgent:
   m_ObjectHideFlags: 0

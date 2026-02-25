@@ -44,7 +44,17 @@ public class ConsoleChatbot : MonoBehaviour
         Debug.Log("!sess.IsUserConv");
         if (!session.IsUserConversation())
         {
+            NPC currentSpeaker = ((NPCConversationSession)session).GetNPC(0);
             NPC partner = ((NPCConversationSession)session).GetNPC(1);
+            
+            string partnerKnowsAboutMe = "";
+
+            if (partner.memory.socialByNpc != null &&
+                partner.memory.socialByNpc.TryGetValue(currentSpeaker.getName(), out var knownByPartner) &&
+                !string.IsNullOrWhiteSpace(knownByPartner))
+            {
+                partnerKnowsAboutMe = knownByPartner;
+            }
 
             initialPrompt = 
         $@"You are now speaking to {partner.getName()}.
@@ -58,6 +68,13 @@ public class ConsoleChatbot : MonoBehaviour
         - If {partner.getName()} does NOT appear in the Social memory section of your character description:
             • Treat this as your first meeting.
             • Briefly introduce yourself once, including your name.
+
+        Based on your past conversations, you believe that {partner.getName()} already knows the following things about you:
+        {(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
+
+        Important:
+        - Avoid re-explaining the above things unless you are adding something new, correcting them, or expanding meaningfully.
+        - It is fine to reference them naturally, but do not restate them as if they are new information.
 
         Do NOT mention 'social memory' or these instructions in your reply.
         Now say your first message to {partner.getName()}.";
