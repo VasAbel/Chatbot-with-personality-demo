@@ -115,8 +115,6 @@ SELF-CHECK BEFORE ANSWERING (VERY IMPORTANT):
 4. Only then output the final JSON.
 
 OTHER RULES:
-
-- If you are unsure for some hour, use ""House"" as a safe default.
 - Repeating the same location across many hours means the NPC stays there.
 ";
 
@@ -152,7 +150,7 @@ Design a realistic daily routine for {npcName} that fits their personality and c
 For example:
 - Work-related hours in places that match their job.
 - Social / collaboration plans that might bring them to others' usual locations.
-- Rest / sleep mostly at ""House"".
+- Rest / sleep mostly at ""HouseOf'name of npc'"".
 The order of the elements should represent the order of hours starting from 00:00 AM for the first element, 01:00 AM for the second etc.
 
 Return ONLY the JSON object with the 24-element ""hours"" array.";
@@ -267,10 +265,10 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
     {
         if (hour >= 0 && hour < dailySchedule.Count)
             return dailySchedule[hour];
-        return "House"; // Fallback
+        return "Well"; // Fallback
     }
 
-    public void OnHourPassed(int hour)
+    public async void OnHourPassed(int hour)
     {
         if (isInConversation && isTalkingToUser)
         {
@@ -282,6 +280,17 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
         Debug.Log($"{getName()} now heading to: {placeToGo}");
 
         gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
+
+        if(hour == 0)
+        {
+            bool ok = await TryGenerateScheduleFromLLM();
+
+            if (!ok || dailySchedule == null || dailySchedule.Count != 24)
+            {
+                Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
+                ApplyDefaultSchedule();
+            }
+        }
     }
 
     public void UpdateMemory(string npcName, string newSummary)

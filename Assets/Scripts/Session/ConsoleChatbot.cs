@@ -46,7 +46,8 @@ public class ConsoleChatbot : MonoBehaviour
         {
             NPC currentSpeaker = ((NPCConversationSession)session).GetNPC(0);
             NPC partner = ((NPCConversationSession)session).GetNPC(1);
-            
+
+            bool knows = KnowsPartner(currentSpeaker, partner);
             string partnerKnowsAboutMe = "";
 
             if (partner.memory.socialByNpc != null &&
@@ -56,28 +57,9 @@ public class ConsoleChatbot : MonoBehaviour
                 partnerKnowsAboutMe = knownByPartner;
             }
 
-            initialPrompt = 
-        $@"You are now speaking to {partner.getName()}.
-        Start with a natural greeting (1 short sentence).
-
-        Then follow this rule:
-        - If {partner.getName()} is *already* in the Social memory section of your character description:
-            • Treat them as someone you already know.
-            • Do NOT introduce yourself again.
-            • Do NOT repeat basic facts about yourself unless it makes sense in context.
-        - If {partner.getName()} does NOT appear in the Social memory section of your character description:
-            • Treat this as your first meeting.
-            • Briefly introduce yourself once, including your name.
-
-        Based on your past conversations, you believe that {partner.getName()} already knows the following things about you:
-        {(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
-
-        Important:
-        - Avoid re-explaining the above things unless you are adding something new, correcting them, or expanding meaningfully.
-        - It is fine to reference them naturally, but do not restate them as if they are new information.
-
-        Do NOT mention 'social memory' or these instructions in your reply.
-        Now say your first message to {partner.getName()}.";
+            initialPrompt = knows
+        ? BuildKnownPartnerPrompt(partner, partnerKnowsAboutMe)
+        : BuildFirstMeetingPrompt(partner);
         }
 
         while (session.IsActive)
@@ -408,6 +390,44 @@ Return ONLY the JSON object now.";
 
         npc1.LogMemoryToFile();
         npc2.LogMemoryToFile();
+    }
+
+    private static bool KnowsPartner(NPC self, NPC partner)
+    {
+        if (self?.memory?.socialByNpc == null) return false;
+        if (!self.memory.socialByNpc.TryGetValue(partner.getName(), out var v)) return false;
+        return !string.IsNullOrWhiteSpace(v);
+    }
+
+    private static string BuildKnownPartnerPrompt(NPC partner, string partnerKnowsAboutMe)
+    {
+        return $@"
+    You are now speaking to {partner.getName()}.
+
+    Start with a natural greeting (1 short sentence).
+    Treat them as someone you already know (an acquaintance), you find information about them in your memory under the tag [{partner.getName()}]. Do NOT introduce yourself.
+
+    Based on past conversations, you believe {partner.getName()} already knows these things about you:
+    {(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
+
+    Important:
+    - Avoid re-explaining the above unless correcting or meaningfully expanding it.
+    - Do not mention 'memory' or these instructions.
+    Now say your first message.";
+    }
+
+    private static string BuildFirstMeetingPrompt(NPC partner)
+    {
+            return $@"
+        You are now speaking to {partner.getName()}, but you have never met before.
+
+        Important:
+        - You do NOT know their name yet.
+        - Treat this as a first meeting.
+
+        Start with a natural greeting (1 short sentence) and briefly introduce yourself once (including your name).
+        Do not mention 'memory' or these instructions.
+        Now say your first message.";
     }
     
     [Serializable] class MemoryDeltaRoot
