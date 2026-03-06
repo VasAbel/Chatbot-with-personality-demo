@@ -1,17 +1,27 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using UnityEngine;
 
 public class NPCConversationSession : ConversationSession
 {
     private NPC npc1, npc2;
     private int currentSpeakerIndex = 0;
 
+    private readonly string npc1CurrentArea;
+    private readonly string npc2CurrentArea;
+    private readonly string npc1Heading;
+    private readonly string npc2Heading;
+
     public NPCConversationSession(NPC npc1, NPC npc2)
     {
         this.npc1 = npc1;
         this.npc2 = npc2;
         conversationID = $"{this.npc1.getName()}-{this.npc2.getName()}";
+
+        npc1CurrentArea = npc1.GetCurrentAreaName();
+        npc2CurrentArea = npc2.GetCurrentAreaName();
+        npc1Heading = npc1.GetHeadingDisplayName();
+        npc2Heading = npc2.GetHeadingDisplayName();
     }
 
     public override NPC GetCurrentSpeaker()
@@ -25,7 +35,7 @@ public class NPCConversationSession : ConversationSession
         NPC currentSpeaker = GetCurrentSpeaker();
         string speakerName = currentSpeaker != null ? currentSpeaker.getName() : null;
 
-        if (message.StartsWith("Start a conversation"))
+        if (message.StartsWith("You are now speaking to"))
         {
             messageHistory.Add(message);
         }   
@@ -35,10 +45,27 @@ public class NPCConversationSession : ConversationSession
         }
     }
 
+    private string BuildSituationFor(NPC speaker)
+    {
+        bool isNpc1 = speaker == npc1;
+
+        string currentArea = isNpc1 ? npc1CurrentArea : npc2CurrentArea;
+        string heading = isNpc1 ? npc1Heading : npc2Heading;
+
+        return
+$@"- You are currently at: {currentArea}
+- Before meeting your conversation partner, you were heading to: {heading}";
+    }
+
     public override void PrepareForNextSpeaker(GptClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(messageHistory, newSpeaker, npc1);
+        string situation = BuildSituationFor(newSpeaker);
+        Debug.Log(
+            $"[LLM Context] Speaker: {newSpeaker.getName()}\n{situation}"
+        );
+
+        client.SetSystemMessage(messageHistory, newSpeaker, npc1, situation);
     }
 
     public override bool IsUserConversation() => false;

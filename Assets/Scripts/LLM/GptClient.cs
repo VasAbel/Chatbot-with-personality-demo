@@ -242,7 +242,7 @@ public class GptClient : ChatClient
         return $"{smallTalk} {promptBack}";
     }
 
-    public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1)
+    public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1, string situationalContext = null)
     {
         conversationHistory.Clear();
 
@@ -286,6 +286,10 @@ public class GptClient : ChatClient
             ? string.Join(", ", currentSpeaker.memory.socialByNpc.Keys)
             : "(no one yet)";
 
+        string situationBlock = string.IsNullOrWhiteSpace(situationalContext)
+            ? "- (no extra situational context)\n"
+            : situationalContext.Trim() + "\n";
+    
         string sys = $@"
             You are role-playing the NPC **{currentSpeaker.getName()}** in a small village.
             Speak naturally, briefly, and in character.
@@ -301,6 +305,9 @@ public class GptClient : ChatClient
 
             # Current plans & thoughts (short-term, may fade or change)
             {thoughtsSnippet}
+
+            # Situation right now
+            {situationBlock}
 
             # Style & norms
             - Always reply **as {currentSpeaker.getName()}** in natural prose.

@@ -1,20 +1,24 @@
 {
-	"descriptions": [
-		{
-			"name": "Tim",
-			"description": "- Skilled craftsman running a small woodworking shop.\n- Creates high-quality handmade furniture with precision and care.\n- Takes pride in craftsmanship and lasting design.\n- Enjoys working with different types of wood and improving his techniques.\n- Loves watching football and spending time with friends after work.\n- Currently building a custom dining table for a local café.\n- Finds satisfaction in seeing his work become part of people’s lives."
-		},
-		{
-			"name": "Amy",
-			"description": "- Passionate teacher dedicated to inspiring students every day.\n- Believes knowledge is the key to opportunity and growth.\n- Enjoys literature, history, and science — always finding ways to make learning engaging.\n- Loves reading and discovering new ideas to bring into her classroom.\n- Hikes and takes photographs in her free time.\n- Feels connected to nature and uses it as creative inspiration."
-		},
-		{
-			"name": "Gabriel",
-			"description": "- 32-year-old history teacher with a love for storytelling and analysis.\n- Enjoys reading historical novels and connecting past events to modern life.\n- Has deep, reflective conversations and values diverse perspectives.\n- Likes debating ideas and learning through discussion.\n- Passionate football fan and enjoys cheering for his favorite team.\n- Finds peace in hiking and nature on weekends."
-		},
-		{
-			"name": "John",
-			"description": "- 28-year-old software developer focused on technology and innovation.\n- Enthusiastic about AI and the future of machine learning.\n- Enjoys discussing new tech trends and sharing ideas with others.\n- Plays basketball and listens to classic ‘80s music in his free time.\n- Curious and energetic conversationalist with a slightly competitive streak.\n- Trying to beat his personal best score in an online game."
-		}
-	]
+  "descriptions": [
+    {
+      "name": "Tim",
+      "core": "- Skilled craftsman running a small woodworking shop.\n- Creates high-quality handmade furniture with precision and care.\n- Takes pride in craftsmanship and lasting design.\n- Enjoys working with different types of wood and improving his techniques.\n- Loves watching football and spending time with friends after work.\n- Finds satisfaction in seeing his work become part of people’s lives.",
+      "thoughts": "- Currently building a custom dining table for a local café.\n- Wants to try a new wood finishing technique on the next piece.\n- Thinking about asking a friend to watch the next football match together."
+    },
+    {
+      "name": "Amy",
+      "core": "- Passionate teacher dedicated to inspiring students every day.\n- Believes knowledge is the key to opportunity and growth.\n- Enjoys literature, history, and science — always finding ways to make learning engaging.\n- Loves reading and discovering new ideas to bring into her classroom.\n- Hikes and takes photographs in her free time.\n- Feels connected to nature and uses it as creative inspiration.",
+      "thoughts": "- Preparing a new lesson plan and looking for a fun classroom activity.\n- Wants to go on a photo walk soon if the weather stays nice.\n- Considering recommending a book to a colleague or student."
+    },
+    {
+      "name": "Gabriel",
+      "core": "- 32-year-old history teacher with a love for storytelling and analysis.\n- Enjoys reading historical novels and connecting past events to modern life.\n- Has deep, reflective conversations and values diverse perspectives.\n- Likes debating ideas and learning through discussion.\n- Passionate football fan and enjoys cheering for his favorite team.\n- Finds peace in hiking and nature on weekends.",
+      "thoughts": "- Thinking about starting a small local history discussion group.\n- Wants to plan a weekend hike and invite someone along.\n- Curious about a recent historical topic and plans to read more about it."
+    },
+    {
+      "name": "John",
+      "core": "- 28-year-old software developer focused on technology and innovation.\n- Enthusiastic about AI and the future of machine learning.\n- Enjoys discussing new tech trends and sharing ideas with others.\n- Plays basketball and listens to classic ‘80s music in his free time.\n- Curious and energetic conversationalist with a slightly competitive streak.",
+      "thoughts": "- Trying to beat his personal best score in an online game.\n- Thinking about a small side project idea related to AI.\n- Wants to get a basketball run going later this week."
+    }
+  ]
 }

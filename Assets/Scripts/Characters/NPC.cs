@@ -22,11 +22,44 @@ public class NPC : MonoBehaviour
     {
         desc = ConfigManager.Instance.GetFullCharacterDescription(idx);
         npcName = ConfigManager.Instance.GetCharacterName(idx);
-        memory.corePersonality = desc.description;
+        memory.corePersonality = desc.core ?? "";
+        memory.currentThoughts.Clear();
+        foreach (var t in ParseInitialThoughts(desc.thoughts))
+            memory.currentThoughts.Add(t);
     }
 
+    private IEnumerable<Thought> ParseInitialThoughts(string thoughtsBlock)
+    {
+        if (string.IsNullOrWhiteSpace(thoughtsBlock))
+            yield break;
+
+        var lines = thoughtsBlock
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0);
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+        foreach (var line in lines)
+        {
+            // allow either "- something" or "something"
+            string text = line.StartsWith("-") ? line.TrimStart('-').Trim() : line;
+
+            if (string.IsNullOrWhiteSpace(text))
+                continue;
+
+            yield return new Thought
+            {
+                text = text,
+                // reasonable defaults for seeded “current situation”
+                confidence = 0.8f,
+                salience = 0.6f,
+                createdUnix = now
+            };
+        }
+    }
     public string getName() => npcName;
-    public string getDesc() => desc.description;
+    public string getDesc() => desc.core;
 
     public void setName(string value)
     {
@@ -408,6 +441,36 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
 
         // Drop thoughts that are essentially forgotten
         memory.currentThoughts.RemoveAll(t => t.salience < 0.05f);
+    }
+
+    public string GetCurrentAreaName()
+    {
+        if (PlaceRegistry.Instance == null)
+            return PlaceRegistry.DefaultAreaName;
+
+        return PlaceRegistry.Instance.DescribePosition(transform.position);
+    }
+
+    public string GetHeadingPlaceId()
+    {
+        var mover = GetComponent<NpcMovement>();
+        if (mover != null && !string.IsNullOrWhiteSpace(mover.CurrentTargetPlaceId))
+            return mover.CurrentTargetPlaceId;
+
+        NPCGlobalTimer timer = FindObjectOfType<NPCGlobalTimer>();
+        int hour = timer != null ? timer.GetCurrentHour() : 8;
+
+        return GetCurrentPlace(hour);
+    }
+
+    public string GetHeadingDisplayName()
+    {
+        string placeId = GetHeadingPlaceId();
+
+        if (PlaceRegistry.Instance == null || string.IsNullOrWhiteSpace(placeId))
+            return "unknown place";
+
+        return PlaceRegistry.Instance.GetPlaceDisplayName(placeId);
     }
 }
 

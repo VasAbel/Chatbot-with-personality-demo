@@ -6,6 +6,9 @@ public class NpcMovement : Movement
     private Transform destination;
     private NavMeshAgent agent;
 
+    private string currentTargetPlaceId;
+    public string CurrentTargetPlaceId => currentTargetPlaceId;
+
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
@@ -101,6 +104,7 @@ public class NpcMovement : Movement
         Transform target = PlaceRegistry.Instance.GetPlaceByName(placeToGo);
         if (target != null)
         {
+            currentTargetPlaceId = placeToGo;
             destination = target;
             canMove = true;
 

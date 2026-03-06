@@ -365,7 +365,7 @@ Use exactly this schema (types matter):
 
 SECTION DEFINITIONS:
 
-- core: stable, long-term facts about THIS NPC (job, values, deep preferences, recurring habits).
+- core (weeks/months/years/permanent): stable, long-term facts about THIS NPC (job, values, deep preferences, recurring habits, looks).
   Things that are true even months or years later.
   Never put information about other people into core.
   Never put temporary plans, current projects or transient thoughts here.
@@ -375,29 +375,56 @@ SECTION DEFINITIONS:
   Keys in ""social"" must be other NPC names only (never the self name).
 
 - thoughts:
+  TYPICAL WORDS: today/this week/currently/trying/planning/worried/excited
   Short-term or **evolving ideas/plans** of THIS NPC: current projects, considering/planning/might/soon
   Volatile thoughts that can appear, change, or disappear quickly.
+  VERY IMPORTANT: Planning activities with others is a typical element of thought section. Always note down specific locations or timeslots (days, hours, dates) IF IT WAS DISCUSSED IN THE CONVERSATION, so the NPC memorizes what they agreed to. 
 
 CLASSIFY WITH THESE EXAMPLES:
 - core (about SELF): ""Teaches history."" ""Values craftsmanship."" ""Often hikes on weekends."" ""Believes healthy food is important to be happy.""
 - thoughts: ""Currently building a table."" ""Considering collaborating with Gabriel soon."" ""Thinking about hosting a party."" ""Planning to visit her brother.""
 - social (about OTHERS): ""Gabriel teaches history and loves storytelling."" ""John is currently planning to throw a party.""
 
-INDEX RULES (CRITICAL):
+OPERATIONS:
+-add: Put the sentence here if it is a COMPLETELY NEW INFORMATION that IS NOT PART OF THE MEMORY YET IN ANY FORM. If there already is a differently phrased sentence with the SAME MEANING, DO NOT add the new one. If there already is a SIMILAR sentence with LESS INFORMATION, use UPDATE instead of add.
+Example: ""core"": {
+    ""add"":    [""Her favourite animals are horses""]
+    ...
+
+-update: Put the index of the old sentence and the new sentence here if there is an old one WITH A SIMILAR MEANING BUT LESS/CONTRADICTED INFORMATION. If a sentence has no relevance anymore, DO NOT UPDATE IT, REMOVE INSTEAD.
+Example: ""core"": {
+    ...
+    ""update"": [{ ""index"": 0, ""new"": ""Her favourite animals are black horses"" }] --> eg. original sentence on idx 0 was ""Her favourite animals are horses""
+
+-remove: Put the index of the sentence here if it became CLEARLY CONTRADICTED OR ABANDONED AND NOT UPDATED. If the topic was simply not mentioned in the conversation but NOT CLEARLY CONTRADICTED, decide by analyzing if the sentence makes sense to be remembered by a human-like character. If you see something that was CLEARLY PLACED IN THE WRONG SECTION, put it in remove.
+Example: ""social"": {
+    ""XY"": {
+      ...
+      ""remove"": [0] --> eg. the sentence was ""XY is making dinner"" but the conversation reveals the dinner is already done.
+
+-reinforce: Put the index of the sentence in ""thoughts"" here if the topic came up in the conversation again and the character seems to be still interested about the topic.
+
+CONSISTENCY (CRITICAL):
+If you see DUPLICATES in meaning or VERY SIMILAR TOPICS among existing sentences, resolve them:
+
+- If two sentences express the SAME INFORMATION → REMOVE one of them.
+- If one sentence contains ALL the information of another plus MORE → REMOVE the less informative one.
+- If two sentences contain PARTIAL information that complements each other → MERGE them:
+    - UPDATE one sentence with the combined information.
+    - REMOVE the other sentence.
+
+Always operate using the correct indices from PREVIOUS MEMORY. Prefer keeping the sentence that is clearer or more specific
+
+*Never place the same index in both remove and update or in both remove and reinforce.*
+
+INDEXING (CRITICAL):
 - PREVIOUS CORE / SOCIAL / THOUGHTS will be given as indexed lists (0..N-1).
-- update/remove/reinforce must ONLY use those indices to mark which item should be updated/removed/reinforced.
-- add must contain ONLY truly new items not already present in meaning. add mustn't contain entries that are conceptually the same as an existing item with a different phrasing. Only new, previously unmemorized information should be added.
-- If something is the same idea with new detail: use update (not add).
-- Only remove core/social if clearly contradicted or explicitly abandoned (not just unmentioned).
 
 GENERAL RULES:
-
 - Keep strings concise (< 120 chars).
 - Avoid near-duplicates; do not restate the same idea with slightly different wording.
 - ""core"", ""social"", and ""thoughts"" must always be JSON OBJECTS, not arrays.
-- If there are no changes for a section, you may either:
-  - omit that section completely, OR
-  - include it as an empty object: {}.
+- If there are no changes for a section, omit that section completely
 ";
 
 

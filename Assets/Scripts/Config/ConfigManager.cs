@@ -23,7 +23,8 @@ namespace Assets.Game_Manager
         public class Description
         {
             public string name;
-            public string description;
+            public string core;
+            public string thoughts;
         }
 
         private static readonly Lazy<ConfigManager> _instance =
@@ -47,7 +48,7 @@ namespace Assets.Game_Manager
         public int GetTimerLength() => config.timerLength;
         public string GetChatbotUrl() => config.chatbotFallbackUrl;
 
-        public string GetCharacterDescription(int idx) => desc.descriptions[idx].description;
+        public string GetCharacterDescription(int idx) => desc.descriptions[idx].core;
         public Description GetFullCharacterDescription(int idx) => desc.descriptions[idx];
         public string GetCharacterName(int idx) => desc.descriptions[idx].name;
     }
