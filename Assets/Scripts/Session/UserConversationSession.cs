@@ -9,6 +9,7 @@ public class UserConversationSession : ConversationSession
 
     private readonly string currentArea;
     private readonly string heading;
+    private readonly string timestamp;
 
     public UserConversationSession(NPC npc)
     {
@@ -17,6 +18,7 @@ public class UserConversationSession : ConversationSession
 
         currentArea = npc.GetCurrentAreaName();
         heading = npc.GetHeadingDisplayName();
+        timestamp = npc.GetCurrentGameTimestamp();
     }
 
     public override NPC GetCurrentSpeaker()
@@ -33,7 +35,8 @@ public class UserConversationSession : ConversationSession
     public override void PrepareForNextSpeaker(GptClient client)
     {
         string situation =
-$@"- You are currently at: {currentArea}
+$@"- Current in-game time: {timestamp}
+- You are currently at: {currentArea}
 - Before meeting the player, you were heading to: {heading}";
 
         client.SetSystemMessage(messageHistory, npc, npc, situation);

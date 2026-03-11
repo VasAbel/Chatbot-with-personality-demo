@@ -8,6 +8,7 @@ public class Thought
     public float confidence;   // 0..1
     public float salience;     // 0..1 (how much it matters to the NPC)
     public long createdUnix;   // DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+    public string gameTimestamp;
 }
 
 [Serializable]

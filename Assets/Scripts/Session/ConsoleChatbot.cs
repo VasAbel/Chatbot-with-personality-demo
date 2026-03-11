@@ -8,6 +8,7 @@ using TMPro;
 using System;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Unity.VisualScripting;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -358,7 +359,7 @@ Use exactly this schema (types matter):
   },
   ""thoughts"": {
     ""add"":       [""...""],
-    ""reinforce"": [0, 1],
+    ""update"": [{ ""index"": 0, ""new"": ""..."" }],
     ""remove"":      [0, 1]
   }
 }
@@ -392,19 +393,23 @@ Example: ""core"": {
     ...
 
 -update: Put the index of the old sentence and the new sentence here if there is an old one WITH A SIMILAR MEANING BUT LESS/CONTRADICTED INFORMATION. If a sentence has no relevance anymore, DO NOT UPDATE IT, REMOVE INSTEAD.
+        IMPORTANT: When updating an item, do not lose any context from the previous version, because this is the *single source of truth* for the NPC. Example: ""XY is making a chair for a restaurant"" -> ""XY has almost finished the chair, *that he was making for a restaurant*"". Without the last part, the LLM reading the memory wouldn't understand what chair the memory talks about, since that information would have been lost after udate.
 Example: ""core"": {
     ...
     ""update"": [{ ""index"": 0, ""new"": ""Her favourite animals are black horses"" }] --> eg. original sentence on idx 0 was ""Her favourite animals are horses""
 
--remove: Put the index of the sentence here if it became CLEARLY CONTRADICTED OR ABANDONED AND NOT UPDATED. If the topic was simply not mentioned in the conversation but NOT CLEARLY CONTRADICTED, decide by analyzing if the sentence makes sense to be remembered by a human-like character. If you see something that was CLEARLY PLACED IN THE WRONG SECTION, put it in remove.
+-remove: Put the index of the sentence here if it became CLEARLY CONTRADICTED, ABANDONED OR OUTDATED AND NOT UPDATED. If you see something that was CLEARLY PLACED IN THE WRONG SECTION, put it in remove.
+    CONTRADICTED: The NPC clearly states the opposite of an information or states changing their mind about it. (SELF about core and thoughts or OTHER NPC about something in Social) (Example: ""XY loves dogs"" -> Conversation: ""XY: I don't like dogs anymore"")
+    ABANDONED: An information about a process that is now finished and not worth to remember (Example: ""XY is making dinner"" -> Conversation: ""I am done with making dinner)
+    OUTDATED: An information that was once new and worth to memorize but is not interesting in the long term. (Example: ""XY has finished the job he was working on for a long time"" -> The topic is now outdated and not contributing to the personality of the NPC anymore)
+    Watch out for these 3 types of information carefully, decide with a brain of a human (what are things that are not building personality and were just remembered as a temporary information once but are not important in the long run)
 Example: ""social"": {
     ""XY"": {
       ...
-      ""remove"": [0] --> eg. the sentence was ""XY is making dinner"" but the conversation reveals the dinner is already done.
-
--reinforce: Put the index of the sentence in ""thoughts"" here if the topic came up in the conversation again and the character seems to be still interested about the topic.
+      ""remove"": [0]
 
 CONSISTENCY (CRITICAL):
+Before adding a new sentence, always double check if there is an existing sentence with the same topic. Even if the sentence is not exactly the same, has less or additional information, but HAS THE SAME BASE STATEMENT, PREFER UPDATING it instead of adding a new sentence with overlapping parts.
 If you see DUPLICATES in meaning or VERY SIMILAR TOPICS among existing sentences, resolve them:
 
 - If two sentences express the SAME INFORMATION → REMOVE one of them.
@@ -415,7 +420,7 @@ If you see DUPLICATES in meaning or VERY SIMILAR TOPICS among existing sentences
 
 Always operate using the correct indices from PREVIOUS MEMORY. Prefer keeping the sentence that is clearer or more specific
 
-*Never place the same index in both remove and update or in both remove and reinforce.*
+*Never place the same index in both remove and update.*
 
 INDEXING (CRITICAL):
 - PREVIOUS CORE / SOCIAL / THOUGHTS will be given as indexed lists (0..N-1).
@@ -453,13 +458,15 @@ Previous THOUGHTS (indexed, short-term plans/ideas of {self.getName()}):
 : string.Join("\n", self.memory.currentThoughts
     .OrderByDescending(t => t.salience)
     .ThenByDescending(t => t.confidence)
-    .Select((t,i) => $"{i}: {t.text.Trim()} (sal {Mathf.RoundToInt(t.salience*100)}%, conf {Mathf.RoundToInt(t.confidence*100)}%)")))}
+    .Select((t,i) =>
+    $"{i}: [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text.Trim()} " +
+    $"(sal {Mathf.RoundToInt(t.salience*100)}%, conf {Mathf.RoundToInt(t.confidence*100)}%)")))}
 
 CURRENT Conversation (latest session, including speaker names):
 {fullConversation}
 
 Task:
-- Decide what to add, update, remove, or reinforce in core, social, and thoughts.
+- Decide what to add, update, or remove in core, social, and thoughts.
 - Only consider information that was actually revealed or implied in the CURRENT conversation.
 - Remember:
   - core & thoughts are ONLY about {self.getName()},
@@ -573,11 +580,46 @@ Return ONLY the JSON object.";
         [Serializable] public class ThoughtsDelta
         {
             public List<string> add;
-            public List<int> reinforce;
+            public List<UpdateByIndex> update;
             public List<int> remove;
         }
     }
 
+    private static string StripTimestampPrefix(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+        s = s.Trim();
+
+        // matches prefixes like:
+        // [2026-01-01 14:00 Thursday] something
+        if (s.StartsWith("["))
+        {
+            int close = s.IndexOf(']');
+            if (close > 0 && close + 1 < s.Length)
+                return s.Substring(close + 1).Trim();
+        }
+
+        return s;
+    }
+
+    private string BuildMemoryStamp(NPC npc)
+    {
+        return $"[{npc.GetMemoryTimestampTag()}]";
+    }
+
+    private string StampMemoryLine(NPC npc, string text)
+    {
+        string clean = StripBulletAndTimestamp(text);
+        return $"{BuildMemoryStamp(npc)} {clean}";
+    }
+
+    private static string StripBulletAndTimestamp(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+        s = s.Trim().TrimStart('-', ' ').Trim();
+        s = StripTimestampPrefix(s);
+        return s.Trim();
+    }
 
     private void ApplyMemoryJson(NPC npc, string json)
     {
@@ -615,17 +657,17 @@ Return ONLY the JSON object.";
         void AddIfNotExists(List<string> lines, string fact)
         {
             if (string.IsNullOrWhiteSpace(fact)) return;
-            var target = StripBullet(fact);
+            var target = StripBulletAndTimestamp(fact);
 
             bool exists = lines.Any(l =>
             {
-                var raw = StripBullet(l);
+                var raw = StripBulletAndTimestamp(l);
                 return raw.Equals(target, StringComparison.OrdinalIgnoreCase)
                     || RoughlySameFact(raw, target);
             });
 
             if (!exists)
-                lines.Add("- " + target);
+                lines.Add("- " + StampMemoryLine(npc, target));
         }
 
         // =========================
@@ -720,7 +762,7 @@ Return ONLY the JSON object.";
                         if (string.IsNullOrWhiteSpace(newText)) continue;
 
                         if (u.index >= 0 && u.index < lines.Count)
-                            lines[u.index] = "- " + newText;
+                            lines[u.index] = "- " + StampMemoryLine(npc, newText);
                         else
                             AddIfNotExists(lines, newText);
                     }
@@ -745,7 +787,6 @@ Return ONLY the JSON object.";
         // =========================
         if (delta.thoughts != null)
         {
-            // Apply some decay each update (you can tune this)
             npc.DecayThoughts(1.0f);
 
             if (npc.memory.currentThoughts == null)
@@ -753,62 +794,21 @@ Return ONLY the JSON object.";
 
             var thoughts = npc.memory.currentThoughts;
 
+            // IMPORTANT: indices must match the sorted order shown in promptFor()
             var ordered = thoughts
-            .OrderByDescending(t => t.salience)
-            .ThenByDescending(t => t.confidence)
-            .ToList();
+                .OrderByDescending(t => t.salience)
+                .ThenByDescending(t => t.confidence)
+                .ToList();
 
             Thought FindSimilar(string text)
             {
                 if (string.IsNullOrWhiteSpace(text)) return null;
-                var trimmed = text.Trim();
+                var trimmed = StripBulletAndTimestamp(text);
                 return thoughts.FirstOrDefault(t => RoughlySameFact(t.text, trimmed));
             }
 
-            // ADD: create new or strengthen similar
-            if (delta.thoughts.add != null && delta.thoughts.add.Count > 0)
-            {
-                foreach (var s in delta.thoughts.add)
-                {
-                    if (string.IsNullOrWhiteSpace(s)) continue;
-                    var trimmed = s.Trim();
-
-                    var existing = FindSimilar(trimmed);
-                    if (existing != null)
-                    {
-                        // treat as implicit reinforce
-                        existing.salience   = Mathf.Clamp01(existing.salience + 0.2f);
-                        existing.confidence = Mathf.Clamp01(existing.confidence + 0.1f);
-                    }
-                    else
-                    {
-                        thoughts.Add(new Thought
-                        {
-                            text        = trimmed,
-                            confidence  = 0.6f,
-                            salience    = 0.6f,
-                            createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
-                        });
-                    }
-                }
-            }
-
-            // REINFORCE: strengthen existing similar thoughts
-            if (delta.thoughts.reinforce != null && delta.thoughts.reinforce.Count > 0)
-            {
-                foreach (var idx in delta.thoughts.reinforce.Distinct())
-                {
-                    if (idx >= 0 && idx < ordered.Count)
-                    {
-                        var t = ordered[idx];
-                        t.salience = Mathf.Clamp01(t.salience + 0.2f);
-                        t.confidence = Mathf.Clamp01(t.confidence + 0.2f);
-                    }
-                }
-            }
-
-            // DROP: remove similar thoughts
-            if (delta.thoughts.remove != null)
+            // REMOVE first, descending indices
+            if (delta.thoughts.remove != null && delta.thoughts.remove.Count > 0)
             {
                 foreach (var idx in delta.thoughts.remove.Distinct().OrderByDescending(i => i))
                 {
@@ -821,13 +821,80 @@ Return ONLY the JSON object.";
                 }
             }
 
-            // keep only top N by salience to control tokens
+            // UPDATE existing thought by index
+            if (delta.thoughts.update != null && delta.thoughts.update.Count > 0)
+            {
+                foreach (var u in delta.thoughts.update)
+                {
+                    if (u == null) continue;
+
+                    string newText = StripBulletAndTimestamp(u.@new);
+                    if (string.IsNullOrWhiteSpace(newText)) continue;
+
+                    if (u.index >= 0 && u.index < ordered.Count)
+                    {
+                        var target = ordered[u.index];
+                        target.text = newText;
+                        target.salience = Mathf.Clamp01(target.salience + 0.15f);
+                        target.confidence = Mathf.Clamp01(target.confidence + 0.10f);
+                        target.gameTimestamp = npc.GetMemoryTimestampTag();
+                    }
+                    else
+                    {
+                        // out-of-range update -> safest fallback is add/merge
+                        var existing = FindSimilar(newText);
+                        if (existing != null)
+                        {
+                            existing.text = newText;
+                            existing.salience = Mathf.Clamp01(existing.salience + 0.15f);
+                            existing.confidence = Mathf.Clamp01(existing.confidence + 0.10f);
+                            existing.gameTimestamp = npc.GetMemoryTimestampTag();
+                        }
+                        else
+                        {
+                            thoughts.Add(new Thought
+                            {
+                                text = newText,
+                                confidence = 0.6f,
+                                salience = 0.6f,
+                                createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                                gameTimestamp = npc.GetMemoryTimestampTag()
+                            });
+                        }
+                    }
+                }
+            }
+
+            // ADD: only if not already represented by an existing thought
+            if (delta.thoughts.add != null && delta.thoughts.add.Count > 0)
+            {
+                foreach (var s in delta.thoughts.add)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    var trimmed = StripBulletAndTimestamp(s);
+
+                    var existing = FindSimilar(trimmed);
+                    if (existing == null)
+                    {
+                        thoughts.Add(new Thought
+                        {
+                            text = trimmed,
+                            confidence = 0.6f,
+                            salience = 0.6f,
+                            createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                            gameTimestamp = npc.GetMemoryTimestampTag()
+                        });
+                    }
+                }
+            }
+
             npc.memory.currentThoughts = thoughts
                 .OrderByDescending(t => t.salience)
                 .ThenByDescending(t => t.confidence)
                 .Take(7)
                 .ToList();
         }
+        Debug.Log($"[Memory Timestamp] {npc.getName()} updated memory at {npc.GetMemoryTimestampTag()}");
     }
 
 
@@ -839,6 +906,7 @@ Return ONLY the JSON object.";
         // Normalize: remove bullet, trim, strip trailing punctuation like . ! ? ; :
         string Normalize(string s)
         {
+            s = StripTimestampPrefix(s);
             if (string.IsNullOrWhiteSpace(s)) return string.Empty;
 
             s = s.TrimStart('-', ' ').Trim(); // remove leading bullet and spaces

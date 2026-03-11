@@ -11,6 +11,7 @@ public class NPCConversationSession : ConversationSession
     private readonly string npc2CurrentArea;
     private readonly string npc1Heading;
     private readonly string npc2Heading;
+    private readonly string conversationTimestamp;
 
     public NPCConversationSession(NPC npc1, NPC npc2)
     {
@@ -22,6 +23,14 @@ public class NPCConversationSession : ConversationSession
         npc2CurrentArea = npc2.GetCurrentAreaName();
         npc1Heading = npc1.GetHeadingDisplayName();
         npc2Heading = npc2.GetHeadingDisplayName();
+        conversationTimestamp = npc1.GetCurrentGameTimestamp();
+
+        Debug.Log(
+            $"[Conversation Start] {npc1.getName()} ↔ {npc2.getName()}\n" +
+            $"Time: {conversationTimestamp}\n" +
+            $"{npc1.getName()} | at: {npc1CurrentArea} | heading to: {npc1Heading}\n" +
+            $"{npc2.getName()} | at: {npc2CurrentArea} | heading to: {npc2Heading}"
+        );
     }
 
     public override NPC GetCurrentSpeaker()
@@ -53,7 +62,8 @@ public class NPCConversationSession : ConversationSession
         string heading = isNpc1 ? npc1Heading : npc2Heading;
 
         return
-$@"- You are currently at: {currentArea}
+$@"- Current in-game time: {conversationTimestamp}
+- You are currently at: {currentArea}
 - Before meeting your conversation partner, you were heading to: {heading}";
     }
 
@@ -72,7 +82,6 @@ $@"- You are currently at: {currentArea}
 
     public NPC GetNPC(int index)
     {
-        if(index == 0) return npc1;
-        else return npc2;
+        return index == 0 ? npc1 : npc2;
     }
 }

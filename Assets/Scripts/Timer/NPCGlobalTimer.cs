@@ -1,15 +1,27 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 public class NPCGlobalTimer : MonoBehaviour
 {
     public float secondsPerHour = 60f; // 1 minute = 1 game hour
+
+    [Header("Starting in-game date/time")]
+    [SerializeField] private int startYear = 2026;
+    [SerializeField] private int startMonth = 1;
+    [SerializeField] private int startDay = 1;
+    [SerializeField] private int startHour = 8;
     private float timer = 0f;
-    private int currentHour = 8;
+    private DateTime currentDateTime;
 
     private List<NPC> registeredNPCs = new List<NPC>();
 
+    void Awake()
+    {
+        currentDateTime = new DateTime(startYear, startMonth, startDay, startHour, 0, 0);
+        Debug.Log($"[GameTime] Start: {GetFullTimestamp()}");
+    }
     void Update()
     {
         timer += Time.deltaTime;
@@ -17,7 +29,7 @@ public class NPCGlobalTimer : MonoBehaviour
         if (timer >= secondsPerHour)
         {
             timer = 0f;
-            currentHour = (currentHour + 1) % 24;
+            currentDateTime = currentDateTime.AddHours(1);
             NotifyNPCs();
         }
     }
@@ -26,10 +38,10 @@ public class NPCGlobalTimer : MonoBehaviour
     {
         foreach (var npc in registeredNPCs)
         {
-            npc.OnHourPassed(currentHour);
+            npc.OnHourPassed(currentDateTime.Hour);
         }
 
-        Debug.Log($"Hour {currentHour}: NPCs notified.");
+        Debug.Log($"[GameTime] Advanced to {GetFullTimestamp()} | NPCs notified.");
     }
 
     public void RegisterNPC(NPC npc)
@@ -40,8 +52,35 @@ public class NPCGlobalTimer : MonoBehaviour
         }
     }
 
-    public int GetCurrentHour()
+    public int GetCurrentHour() => currentDateTime.Hour;
+    public int GetCurrentDay() => currentDateTime.Day;
+    public int GetCurrentMonth() => currentDateTime.Month;
+    public int GetCurrentYear() => currentDateTime.Year;
+    public DayOfWeek GetCurrentDayOfWeek() => currentDateTime.DayOfWeek;
+    public DateTime GetCurrentDateTime() => currentDateTime;
+
+    public string GetCurrentDateString()
     {
-        return currentHour;
+        return currentDateTime.ToString("yyyy-MM-dd");
+    }
+
+    public string GetCurrentDayOfWeekString()
+    {
+        return currentDateTime.DayOfWeek.ToString();
+    }
+
+    public string GetCurrentHourString()
+    {
+        return currentDateTime.ToString("HH:mm");
+    }
+
+    public string GetFullTimestamp()
+    {
+        return currentDateTime.ToString("dddd, yyyy-MM-dd HH:mm");
+    }
+
+    public string FormatMemoryTimestamp()
+    {
+        return currentDateTime.ToString("yyyy-MM-dd HH:mm dddd");
     }
 }

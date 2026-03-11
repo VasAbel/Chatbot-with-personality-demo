@@ -54,7 +54,8 @@ public class NPC : MonoBehaviour
                 // reasonable defaults for seeded “current situation”
                 confidence = 0.8f,
                 salience = 0.6f,
-                createdUnix = now
+                createdUnix = now,
+                gameTimestamp = GetMemoryTimestampTag()
             };
         }
     }
@@ -116,6 +117,15 @@ public class NPC : MonoBehaviour
 
         string placesList = string.Join(", ", placeNames);
 
+        var timer = FindObjectOfType<NPCGlobalTimer>();
+        string todayBlock = timer != null
+            ? $@"Current in-game date: {timer.GetCurrentDateString()}
+        Current in-game day of week: {timer.GetCurrentDayOfWeekString()}
+        Today full timestamp: {timer.GetFullTimestamp()}"
+            : @"Current in-game date: unknown
+        Current in-game day of week: unknown
+        Today full timestamp: unknown";
+
         // ---- SYSTEM MESSAGE ----
         string system = @"
 You are a daily routine planner for NPCs in a small village simulation game.
@@ -149,6 +159,11 @@ SELF-CHECK BEFORE ANSWERING (VERY IMPORTANT):
 
 OTHER RULES:
 - Repeating the same location across many hours means the NPC stays there.
+- Assume a normal human daily rhythm unless memory clearly suggests otherwise.
+- Most NPCs should sleep/rest at home during late night hours.
+- For typical daytime jobs, waking up and leaving for work around morning is more realistic than around 04:00.
+- School/work for ordinary village life usually happens during daytime, not deep night or very early pre-dawn hours.
+- Evening social visits are possible, but late-night work visits should be rare unless strongly justified by memory.
 ";
 
         // ---- USER MESSAGE (context about this NPC) ----
@@ -167,6 +182,8 @@ OTHER RULES:
         string user = $@"
 NPC name: {npcName}
 
+{todayBlock}
+
 Core personality (long-term traits, job, habits):
 {memory.corePersonality}
 
@@ -180,6 +197,7 @@ Available locations (use ONLY these exact IDs):
 {placesList}
 
 Design a realistic daily routine for {npcName} that fits their personality and current plans.
+If memory contains plans or events tied to today or this weekday, take that into account.
 For example:
 - Work-related hours in places that match their job.
 - Social / collaboration plans that might bring them to others' usual locations.
@@ -309,11 +327,6 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
             return;
         }
 
-        string placeToGo = dailySchedule[hour % dailySchedule.Count];
-        Debug.Log($"{getName()} now heading to: {placeToGo}");
-
-        gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
-
         if(hour == 0)
         {
             bool ok = await TryGenerateScheduleFromLLM();
@@ -324,6 +337,11 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
                 ApplyDefaultSchedule();
             }
         }
+
+        string placeToGo = dailySchedule[hour % dailySchedule.Count];
+        Debug.Log($"[Chronology] {getName()} | now: {GetCurrentGameTimestamp()} | heading to: {placeToGo}");
+
+        gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
     }
 
     public void UpdateMemory(string npcName, string newSummary)
@@ -350,7 +368,7 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
             int shown = 0;
             foreach (var t in memory.currentThoughts)
             {
-                lines.Add($"- {t.text} (salience {(int)(t.salience * 100)}%)");
+                lines.Add($"- [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text} (salience {(int)(t.salience * 100)}%)");
                 if (++shown >= 5) break; // only the top few for token budget
             }
         }
@@ -397,8 +415,8 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
                 foreach (var t in memory.currentThoughts.OrderByDescending(t => t.salience))
                 {
                     DateTime created = DateTimeOffset.FromUnixTimeSeconds(t.createdUnix).DateTime;
-                    writer.WriteLine($"- {t.text}");
-                    writer.WriteLine($"  → confidence: {t.confidence:F2}, salience: {t.salience:F2}, created: {created}");
+                    writer.WriteLine($"- [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text}");
+                    writer.WriteLine($"  → confidence: {t.confidence:F2}, salience: {t.salience:F2}, created(real): {created}");
                     writer.WriteLine();
                 }
             }
@@ -471,6 +489,41 @@ Return ONLY the JSON object with the 24-element ""hours"" array.";
             return "unknown place";
 
         return PlaceRegistry.Instance.GetPlaceDisplayName(placeId);
+    }
+
+    private NPCGlobalTimer GetGameTimer()
+    {
+        return FindObjectOfType<NPCGlobalTimer>();
+    }
+
+    public string GetCurrentGameTimestamp()
+    {
+        var timer = GetGameTimer();
+        return timer != null ? timer.GetFullTimestamp() : "Unknown time";
+    }
+
+    public string GetCurrentGameDateOnly()
+    {
+        var timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentDateString() : "Unknown date";
+    }
+
+    public string GetCurrentGameDayOfWeek()
+    {
+        var timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentDayOfWeekString() : "Unknown day";
+    }
+
+    public string GetCurrentGameHourString()
+    {
+        var timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentHourString() : "??:??";
+    }
+
+    public string GetMemoryTimestampTag()
+    {
+        var timer = GetGameTimer();
+        return timer != null ? timer.FormatMemoryTimestamp() : "Unknown time";
     }
 }
 
