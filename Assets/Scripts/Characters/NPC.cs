@@ -128,42 +128,37 @@ public class NPC : MonoBehaviour
 
         // ---- SYSTEM MESSAGE ----
         string system = @"
-You are a daily routine planner for NPCs in a small village simulation game.
-Your job is to plan a believable 24-hour schedule for exactly one NPC.
+You are a daily routine planner for one NPC in a small village simulation game.
 
-The world is discrete: 24 game hours from 0 to 23.
-For each hour, you must choose **one** location where the NPC spends that hour.
+Your task is to generate a believable schedule for exactly one full day.
 
-You MUST follow these rules:
-
-- You may only use the provided location IDs exactly as given.
-- You MUST output strict JSON with a single property:
+OUTPUT FORMAT:
+- Output strict JSON only.
+- The JSON must have exactly one property:
   {
-      ""hours"": [ ""PLACE_0"", ""PLACE_1"", ..., ""PLACE_23"" ]
+    ""hours"": [ ""PLACE_0"", ""PLACE_1"", ..., ""PLACE_23"" ]
   }
 
-CRITICAL CONSTRAINTS ABOUT THE ARRAY:
+ARRAY RULES:
+- ""hours"" must contain exactly 24 strings.
+- Use only the provided location IDs exactly as given.
+- hours[0] = 00:00-01:00, hours[1] = 01:00-02:00, ..., hours[23] = 23:00-24:00.
+- Do not output any other keys.
+- Do not output explanations, comments, or trailing commas.
 
-- ""hours"" MUST be an array of **exactly 24 strings**.
-- No more than 24. No fewer than 24.
-- hours[0] is hour 0–1, hours[1] is hour 1–2, ..., hours[23] is 23–24.
-- Do NOT include any other keys besides ""hours"".
-- Do NOT include comments, explanations, or trailing commas.
+REALISM RULES:
+- Assume a normal human day-night rhythm unless the memory clearly suggests otherwise.
+- Sleep/rest usually happens at night, mostly at the NPC's own home.
+- Regular work/school usually happens during daytime, commonly starting in the morning.
+- Workplaces are usually visited on workdays more than on weekends, unless the memory clearly suggests otherwise.
+- Social visits and errands are more common in the afternoon or evening than deep at night.
+- If memory clearly refers to something planned for the current day, prioritize that over default routines.
 
-SELF-CHECK BEFORE ANSWERING (VERY IMPORTANT):
-
-1. Count how many elements are in the ""hours"" array in your draft.
-2. If the count is **greater than 24**, remove elements from the **end** until exactly 24 remain.
-3. If the count is **less than 24**, repeat the **last valid place** until there are exactly 24 items.
-4. Only then output the final JSON.
-
-OTHER RULES:
-- Repeating the same location across many hours means the NPC stays there.
-- Assume a normal human daily rhythm unless memory clearly suggests otherwise.
-- Most NPCs should sleep/rest at home during late night hours.
-- For typical daytime jobs, waking up and leaving for work around morning is more realistic than around 04:00.
-- School/work for ordinary village life usually happens during daytime, not deep night or very early pre-dawn hours.
-- Evening social visits are possible, but late-night work visits should be rare unless strongly justified by memory.
+SELF-CHECK BEFORE ANSWERING:
+1. Make sure ""hours"" has exactly 24 items.
+2. If there are too many, remove extras from the end.
+3. If there are too few, repeat the last valid location until there are 24.
+4. Then output the final JSON only.
 ";
 
         // ---- USER MESSAGE (context about this NPC) ----
@@ -179,32 +174,34 @@ OTHER RULES:
             thoughtsBlock = string.Join("\n", memory.currentThoughts.Select(t => "- " + t.text));
         }
 
-        string user = $@"
-NPC name: {npcName}
+        string homeId = $"HouseOf{npcName}";
 
+        string user = $@"
+Generate the daily schedule for this NPC for the following in-game date.
+
+NPC name: {npcName}
 {todayBlock}
 
-Core personality (long-term traits, job, habits):
+This NPC's home location ID: {homeId}
+
+Core personality:
 {memory.corePersonality}
 
-Social memory (what {npcName} knows about others):
+Social memory:
 {(string.IsNullOrWhiteSpace(socialBlock) ? "(none)" : socialBlock)}
 
-Current plans & thoughts (may influence where they go today):
+Current thoughts and plans:
 {(string.IsNullOrWhiteSpace(thoughtsBlock) ? "(none)" : thoughtsBlock)}
 
-Available locations (use ONLY these exact IDs):
+Available location IDs:
 {placesList}
 
-Design a realistic daily routine for {npcName} that fits their personality and current plans.
-If memory contains plans or events tied to today or this weekday, take that into account.
-For example:
-- Work-related hours in places that match their job.
-- Social / collaboration plans that might bring them to others' usual locations.
-- Rest / sleep mostly at ""HouseOf'name of npc'"".
-The order of the elements should represent the order of hours starting from 00:00 AM for the first element, 01:00 AM for the second etc.
+Important interpretation note:
+Some memory items may refer to relative dates such as ""tomorrow"", ""next Friday"", or ""this weekend"".
+Use the current in-game date and the memory timestamps to infer whether such plans are relevant for today.
 
-Return ONLY the JSON object with the 24-element ""hours"" array.";
+Generate the schedule for the 24 hours of this date, from 00:00 to 24:00.
+Return only the JSON object.";
 
         string rawJson;
         try
