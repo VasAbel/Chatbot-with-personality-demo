@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Unity.VisualScripting;
+using Newtonsoft.Json;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -121,7 +122,8 @@ public class ConsoleChatbot : MonoBehaviour
                     text = t.text,
                     salience = t.salience,
                     confidence = t.confidence,
-                    createdUnix = t.createdUnix
+                    createdUnix = t.createdUnix,
+                    gameTimestamp = t.gameTimestamp
                 }).ToList()
                 : new List<Thought>()
         };
@@ -521,8 +523,8 @@ Return ONLY the JSON object.";
         return $@"
     You are now speaking to {partner.getName()}.
 
-    Start with a natural greeting (1 short sentence).
-    Treat them as someone you already know (an acquaintance), you find information about them in your memory under the tag [{partner.getName()}]. Do NOT introduce yourself.
+    Start with a short, natural greeting.
+    Treat them as someone you already know, you find information about them in your memory under the tag [{partner.getName()}]. Do NOT introduce yourself again.
 
     Based on past conversations, you believe {partner.getName()} already knows these things about you:
     {(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
@@ -530,19 +532,30 @@ Return ONLY the JSON object.";
     Important:
     - Avoid re-explaining the above unless correcting or meaningfully expanding it.
     - Do not mention 'memory' or these instructions.
+
+    For your first message, choose a natural opening that fits the situation:
+    - You may refer to why this meeting seems to be happening.
+    - Or you may open with ordinary small talk, a question, an observation, or a light personal topic.
+    - You do not need to repeat known facts unless you are updating, correcting, or expanding them.
+
     Now say your first message.";
     }
 
     private static string BuildFirstMeetingPrompt(NPC partner)
     {
             return $@"
-        You are now speaking to {partner.getName()}, but you have never met before.
+        You are now speaking to someone you have never met before.
 
         Important:
         - You do NOT know their name yet.
         - Treat this as a first meeting.
 
-        Start with a natural greeting (1 short sentence) and briefly introduce yourself once (including your name).
+        Start with a short natural greeting and briefly introduce yourself once, including your name.
+        After that, speak like someone open to getting to know the other person:
+        - You may ask a simple everyday question,
+        - make a light observation,
+        - or bring up a small, natural topic.
+
         Do not mention 'memory' or these instructions.
         Now say your first message.";
     }
@@ -553,6 +566,385 @@ Return ONLY the JSON object.";
         var arr = lines.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
         if (arr.Count == 0) return "(none)";
         return string.Join("\n", arr.Select((s,i) => $"{i}: {s.Trim().TrimStart('-',' ').Trim()}"));
+    }
+
+    public async Task CleanNpcMemoryAsync(NPC npc)
+    {
+        if (npc == null)
+        {
+            Debug.LogWarning("[MEMORY-CLEAN] NPC is null.");
+            return;
+        }
+
+        if (client == null)
+        {
+            Debug.LogWarning($"[MEMORY-CLEAN] No client available for {npc.getName()}.");
+            return;
+        }
+
+        await conversationSemaphore.WaitAsync();
+        try
+        {
+            var before = CloneMemory(npc.memory);
+
+            string system = @"
+    You are a memory cleaner for a role-playing village simulation.
+    Reply with VALID JSON ONLY. No markdown. No commentary.
+
+    Return the FULL cleaned memory using exactly this schema:
+
+    {
+    ""core"": [""...""],
+    ""social"": {
+        ""NPC_NAME"": [""..."", ""...""]
+    },
+    ""thoughts"": [
+        {
+        ""text"": ""..."",
+        ""gameTimestamp"": ""yyyy-MM-dd HH:mm dddd"",
+        ""confidence"": 0.65,
+        ""salience"": 0.55
+        }
+    ]
+    }
+
+    GOALS, IN THIS ORDER:
+
+    1. SECTION CONSISTENCY
+    - core = stable long-term facts about this NPC only.
+    - social = what this NPC believes about other people.
+    - thoughts = temporary / current / recent plans, worries, projects, intentions, short-term interests.
+    - Move items to the correct section if needed.
+    - If a sentence mixes stable and temporary information, split or rewrite it into cleaner atomic items.
+    - Any sentence containing concrete future plans, current projects, specific upcoming events, or explicit time references belongs in thoughts, not core.
+
+    2. REDUNDANCY
+    - Remove exact duplicates.
+    - If one item says everything another item says and more, keep the richer one.
+    - If two related items contain complementary information, merge them into one clearer item.
+
+    3. IMPORTANCE FILTERING
+    - Remove low-value trivia that a human-like villager would probably not keep as useful memory.
+    - Keep information that matters for personality, relationships, preferences, plans, social behavior, or future scheduling.
+
+    4. CLEAN COMPRESSION
+    - Prefer fewer, clearer, more informative memory items.
+    - Preserve useful information even when compressing.
+    - Do not remove important nuance just to shorten the memory.
+
+    5. CHRONOLOGY SANITY
+    - thoughts should remain temporary and current.
+    - stable long-term traits should be in core, not thoughts.
+    - social should only contain information about other people.
+
+    TIMESTAMP RULES (CRITICAL):
+    - Every thought must have a valid gameTimestamp in the exact format: yyyy-MM-dd HH:mm dddd
+    - Every social item should begin with a timestamp prefix in the exact format: [yyyy-MM-dd HH:mm dddd]
+    - Keep the original timestamp when the cleaned item still represents the same underlying memory.
+    - If multiple thought or social items are merged, use the latest timestamp among the merged source items.
+    - Do not invent placeholder timestamps; always reuse the matching timestamp from the original memory when possible.
+    - Preserve timestamps for all thought and social items matching their related original memory item.
+    - Only omit a timestamp if the original matching source item truly had no timestamp.
+
+    IMPORTANT RULES:
+    - Never invent major new facts.
+    - Prefer keeping original wording unless merging or correcting is necessary.
+    - Do not rewrite sentences just for style; only rewrite if it improves structure or removes redundancy.
+    - Be conservative: preserve meaning unless removing redundancy or low-value clutter.
+    - Do not put the NPC's own facts into social.
+    - Do not put facts about other NPCs into core.
+    - Keep the result natural and easy for another LLM to understand later.
+
+    FINAL CHECK:
+    - Ensure no information appears in more than one section.
+    - Ensure each item is in the correct section.
+    - Ensure no duplicates or near-duplicates remain.
+    - Ensure every thought has a valid timestamp.
+    ";
+
+            string user = BuildCleanerUserPrompt(npc);
+
+            string rawJson;
+            if (client is GptClient gpt)
+            {
+                rawJson = await gpt.RequestGenericJsonAsync(system, user, fallbackJson: @"{""core"":[],""social"":{},""thoughts"":[]}", maxTokens: 1200);
+            }
+            else
+            {
+                rawJson = await client.SendChatMessageAsync(system + "\n\n" + user);
+            }
+
+            rawJson = SanitizeJson(rawJson);
+
+            CleanedMemoryDto cleaned = null;
+            try
+            {
+                cleaned = JsonConvert.DeserializeObject<CleanedMemoryDto>(rawJson);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[MEMORY-CLEAN] Failed to parse cleaner JSON for {npc.getName()}: {ex.Message}\nRaw: {rawJson}");
+                return;
+            }
+
+            if (cleaned?.thoughts != null && cleaned.thoughts.Any(t =>
+                t == null ||
+                string.IsNullOrWhiteSpace(t.text) ||
+                !IsValidGameTimestampExact(t.gameTimestamp)))
+            {
+                Debug.LogWarning($"[MEMORY-CLEAN] Invalid thought timestamp in cleaner output for {npc.getName()}, skipping apply.\nRaw: {rawJson}");
+                return;
+            }
+
+            ApplyCleanedMemory(npc, cleaned);
+            LogMemoryClean(npc.getName(), before, npc, rawJson);
+            npc.LogMemoryToFile();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[MEMORY-CLEAN] Cleaner failed for {npc.getName()}: {ex.Message}");
+        }
+        finally
+        {
+            conversationSemaphore.Release();
+        }
+    }
+
+    private static string NormalizeMemoryLine(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "";
+        return StripBulletAndTimestamp(s).Trim();
+    }
+
+    private static string BuildIndexedCoreBlock(NPC npc)
+    {
+        var lines = (npc.memory.corePersonality ?? "")
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l));
+
+        return ToIndexedLines(lines);
+    }
+
+    private static string BuildIndexedSocialBlock(NPC npc)
+    {
+        if (npc.memory.socialByNpc == null || npc.memory.socialByNpc.Count == 0)
+            return "(none)";
+
+        var blocks = new List<string>();
+
+        foreach (var kv in npc.memory.socialByNpc.OrderBy(k => k.Key))
+        {
+            var lines = (kv.Value ?? "")
+                .Split('\n')
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrWhiteSpace(l));
+
+            string indexed = ToIndexedLines(lines);
+            if (string.IsNullOrWhiteSpace(indexed))
+                continue;
+
+            blocks.Add($"[{kv.Key}]\n{indexed}");
+        }
+
+        return blocks.Count == 0 ? "(none)" : string.Join("\n\n", blocks);
+    }
+
+    private static string BuildIndexedThoughtsBlock(NPC npc)
+    {
+        if (npc.memory.currentThoughts == null || npc.memory.currentThoughts.Count == 0)
+            return "(none)";
+
+        return string.Join("\n", npc.memory.currentThoughts
+            .OrderByDescending(t => t.salience)
+            .ThenByDescending(t => t.confidence)
+            .Select((t, i) =>
+                $"{i}: [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text.Trim()} " +
+                $"(sal {Mathf.RoundToInt(t.salience * 100)}%, conf {Mathf.RoundToInt(t.confidence * 100)}%)"));
+    }
+
+    private static string BuildCleanerUserPrompt(NPC npc)
+    {
+        return $@"
+    Clean the memory of this NPC.
+
+    NPC name: {npc.getName()}
+
+    CURRENT CORE (indexed):
+    {BuildIndexedCoreBlock(npc)}
+
+    CURRENT SOCIAL (indexed per NPC):
+    {BuildIndexedSocialBlock(npc)}
+
+    CURRENT THOUGHTS (indexed):
+    {BuildIndexedThoughtsBlock(npc)}
+    IMPORTANT:
+    Items earlier in the list are more important (higher salience).
+    Preserve or prioritize them when merging or removing.
+
+    Return the fully cleaned memory as JSON using the exact schema described in the system prompt.
+    Return only JSON.";
+    }
+
+    private void ApplyCleanedMemory(NPC npc, CleanedMemoryDto cleaned)
+    {
+        if (cleaned == null)
+        {
+            Debug.LogWarning($"[MEMORY-CLEAN] {npc.getName()} cleaner returned null DTO, skipping apply.");
+            return;
+        }
+
+        // ---------- CORE ----------
+        var coreLines = (cleaned.core ?? new List<string>())
+            .Select(NormalizeMemoryLine)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+
+        npc.memory.corePersonality = string.Join("\n", coreLines.Select(s => "- " + s));
+
+        // ---------- SOCIAL ----------
+        var newSocial = new Dictionary<string, string>();
+
+        if (cleaned.social != null)
+        {
+            foreach (var kv in cleaned.social)
+            {
+                string otherName = kv.Key?.Trim();
+                if (string.IsNullOrWhiteSpace(otherName))
+                    continue;
+
+                if (string.Equals(otherName, npc.getName(), StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                var lines = (kv.Value ?? new List<string>())
+                    .Select(s => s?.Trim())
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(18)
+                    .Select(s => "- " + s)
+                    .ToList();
+
+                if (lines.Count > 0)
+                    newSocial[otherName] = string.Join("\n", lines);
+            }
+        }
+
+        npc.memory.socialByNpc = newSocial;
+
+        // ---------- THOUGHTS ----------
+        var newThoughts = new List<Thought>();
+
+        if (cleaned.thoughts != null)
+        {
+            foreach (var t in cleaned.thoughts)
+            {
+                if (t == null) continue;
+
+                string text = NormalizeMemoryLine(t.text);
+                if (string.IsNullOrWhiteSpace(text)) continue;
+
+                newThoughts.Add(new Thought
+                {
+                    text = text,
+                    gameTimestamp = t.gameTimestamp.Trim(),
+                    salience = Mathf.Clamp01(t.salience <= 0 ? 0.55f : t.salience),
+                    confidence = Mathf.Clamp01(t.confidence <= 0 ? 0.65f : t.confidence),
+                    createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                });
+            }
+        }
+
+        npc.memory.currentThoughts = newThoughts
+            .OrderByDescending(t => t.salience)
+            .ThenByDescending(t => t.confidence)
+            .Take(7)
+            .ToList();
+    }
+
+    private static bool IsValidGameTimestampExact(string ts)
+    {
+        if (string.IsNullOrWhiteSpace(ts))
+            return false;
+
+        return DateTime.TryParseExact(
+            ts.Trim(),
+            "yyyy-MM-dd HH:mm dddd",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None,
+            out _
+        );
+    }
+
+    private void LogMemoryClean(string npcName, NpcMemory beforeMem, NPC afterNpc, string rawJson)
+    {
+        string beforeThoughts = (beforeMem.currentThoughts == null) ? "" :
+            string.Join("\n", beforeMem.currentThoughts
+                .OrderByDescending(t => t.salience)
+                .ThenByDescending(t => t.confidence)
+                .Select((t, i) => $"{i}: - {t.text} (sal {t.salience:0.00}, conf {t.confidence:0.00})"));
+
+        string afterThoughts = (afterNpc.memory.currentThoughts == null) ? "" :
+            string.Join("\n", afterNpc.memory.currentThoughts
+                .OrderByDescending(t => t.salience)
+                .ThenByDescending(t => t.confidence)
+                .Select((t, i) => $"{i}: - {t.text} (sal {t.salience:0.00}, conf {t.confidence:0.00})"));
+
+        string block =
+    $@"[MEMORY-CLEAN] npc={npcName} time={DateTime.Now}
+
+    RAW CLEAN JSON:
+    {SafeShort(rawJson, 15000)}
+
+    BEFORE CORE:
+    {SafeShort(beforeMem.corePersonality ?? "(none)", 6000)}
+
+    AFTER CORE:
+    {SafeShort(afterNpc.memory.corePersonality ?? "(none)", 6000)}
+
+    BEFORE SOCIAL:
+    {SafeShort(string.Join("\n\n", (beforeMem.socialByNpc ?? new Dictionary<string, string>())
+        .Select(kv => $"[{kv.Key}]\n{kv.Value}")), 6000)}
+
+    AFTER SOCIAL:
+    {SafeShort(string.Join("\n\n", (afterNpc.memory.socialByNpc ?? new Dictionary<string, string>())
+        .Select(kv => $"[{kv.Key}]\n{kv.Value}")), 6000)}
+
+    BEFORE THOUGHTS:
+    {SafeShort(beforeThoughts, 6000)}
+
+    AFTER THOUGHTS:
+    {SafeShort(afterThoughts, 6000)}
+
+    ------------------------------------------------------------
+    ";
+
+        if (logMemoryDeltasToConsole)
+            Debug.Log(block);
+
+        if (logMemoryDeltasToFile)
+        {
+            string path = Path.Combine(Application.persistentDataPath, "memory_deltas.log");
+            File.AppendAllText(path, block);
+        }
+    }
+
+    [Serializable]
+    private class CleanedThoughtDto
+    {
+        public string text;
+        public string gameTimestamp;
+        public float confidence;
+        public float salience;
+    }
+
+    [Serializable]
+    private class CleanedMemoryDto
+    {
+        public List<string> core;
+        public Dictionary<string, List<string>> social;
+        public List<CleanedThoughtDto> thoughts;
     }
     
     [Serializable] class MemoryDeltaRoot
@@ -670,15 +1062,18 @@ Return ONLY the JSON object.";
                 lines.Add("- " + StampMemoryLine(npc, target));
         }
 
+        static string GetExistingLineTimestamp(string line)
+        {
+            return ExtractTimestampPrefix(line);
+        }
+
         // =========================
         // CORE
         // =========================
         if (delta.core != null)
         {
-            // Split existing core into lines, ignore empties
             var lines = SplitLines(npc.memory.corePersonality);
 
-            // 1) explicit removals first
             if (delta.core.remove != null && delta.core.remove.Count > 0)
             {
                 foreach (var idx in delta.core.remove.Distinct().OrderByDescending(i => i))
@@ -688,7 +1083,6 @@ Return ONLY the JSON object.";
                 }
             }
 
-            // 2) updates: explicit { old, new }
             if (delta.core.update != null && delta.core.update.Count > 0)
             {
                 foreach (var u in delta.core.update)
@@ -703,20 +1097,17 @@ Return ONLY the JSON object.";
                     }
                     else
                     {
-                        // out of range -> treat as add (safe)
                         AddIfNotExists(lines, newText);
                     }
                 }
             }
 
-            // 3) additions: only add if not already present
             if (delta.core.add != null && delta.core.add.Count > 0)
             {
                 foreach (var a in delta.core.add)
                     AddIfNotExists(lines, a);
             }
 
-            // keep core short
             if (lines.Count > 18)
                 lines = lines.Take(18).ToList();
 
@@ -740,7 +1131,6 @@ Return ONLY the JSON object.";
                     continue;
 
                 npc.memory.socialByNpc.TryGetValue(otherName, out var existing);
-
                 var lines = SplitLines(existing);
 
                 if (sDelta.remove != null && sDelta.remove.Count > 0)
@@ -752,31 +1142,37 @@ Return ONLY the JSON object.";
                     }
                 }
 
-                // update by indices
                 if (sDelta.update != null && sDelta.update.Count > 0)
                 {
                     foreach (var u in sDelta.update)
                     {
                         if (u == null) continue;
-                        var newText = StripBullet(u.@new);
+                        var newText = StripBulletAndTimestamp(u.@new);
                         if (string.IsNullOrWhiteSpace(newText)) continue;
 
                         if (u.index >= 0 && u.index < lines.Count)
-                            lines[u.index] = "- " + StampMemoryLine(npc, newText);
+                        {
+                            string oldTs = GetExistingLineTimestamp(lines[u.index]);
+                            if (!string.IsNullOrWhiteSpace(oldTs))
+                                lines[u.index] = $"- [{oldTs}] {newText}";
+                            else
+                                lines[u.index] = "- " + StampMemoryLine(npc, newText);
+                        }
                         else
+                        {
                             AddIfNotExists(lines, newText);
+                        }
                     }
                 }
 
-                // add
                 if (sDelta.add != null && sDelta.add.Count > 0)
                 {
                     foreach (var a in sDelta.add)
                         AddIfNotExists(lines, a);
                 }
 
-                // cap per-person
-                if (lines.Count > 18) lines = lines.Take(18).ToList();
+                if (lines.Count > 18)
+                    lines = lines.Take(18).ToList();
 
                 npc.memory.socialByNpc[otherName] = string.Join("\n", lines);
             }
@@ -807,7 +1203,6 @@ Return ONLY the JSON object.";
                 return thoughts.FirstOrDefault(t => RoughlySameFact(t.text, trimmed));
             }
 
-            // REMOVE first, descending indices
             if (delta.thoughts.remove != null && delta.thoughts.remove.Count > 0)
             {
                 foreach (var idx in delta.thoughts.remove.Distinct().OrderByDescending(i => i))
@@ -821,7 +1216,6 @@ Return ONLY the JSON object.";
                 }
             }
 
-            // UPDATE existing thought by index
             if (delta.thoughts.update != null && delta.thoughts.update.Count > 0)
             {
                 foreach (var u in delta.thoughts.update)
@@ -837,18 +1231,17 @@ Return ONLY the JSON object.";
                         target.text = newText;
                         target.salience = Mathf.Clamp01(target.salience + 0.15f);
                         target.confidence = Mathf.Clamp01(target.confidence + 0.10f);
-                        target.gameTimestamp = npc.GetMemoryTimestampTag();
+                        // keep original timestamp for same thought
                     }
                     else
                     {
-                        // out-of-range update -> safest fallback is add/merge
                         var existing = FindSimilar(newText);
                         if (existing != null)
                         {
                             existing.text = newText;
                             existing.salience = Mathf.Clamp01(existing.salience + 0.15f);
                             existing.confidence = Mathf.Clamp01(existing.confidence + 0.10f);
-                            existing.gameTimestamp = npc.GetMemoryTimestampTag();
+                            // keep existing timestamp here too
                         }
                         else
                         {
@@ -865,7 +1258,6 @@ Return ONLY the JSON object.";
                 }
             }
 
-            // ADD: only if not already represented by an existing thought
             if (delta.thoughts.add != null && delta.thoughts.add.Count > 0)
             {
                 foreach (var s in delta.thoughts.add)
@@ -894,7 +1286,27 @@ Return ONLY the JSON object.";
                 .Take(7)
                 .ToList();
         }
+
         Debug.Log($"[Memory Timestamp] {npc.getName()} updated memory at {npc.GetMemoryTimestampTag()}");
+    }
+
+    private static string ExtractTimestampPrefix(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return null;
+
+        s = s.Trim();
+
+        // Expected format at the start:
+        // [2026-01-02 11:00 Friday] Some memory text
+        if (!s.StartsWith("["))
+            return null;
+
+        int close = s.IndexOf(']');
+        if (close <= 1)
+            return null;
+
+        return s.Substring(1, close - 1).Trim();
     }
 
 

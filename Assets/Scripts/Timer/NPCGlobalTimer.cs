@@ -19,7 +19,7 @@ public class NPCGlobalTimer : MonoBehaviour
 
     void Awake()
     {
-        currentDateTime = new DateTime(startYear, startMonth, startDay, startHour, 0, 0);
+        EnsureInitialized();
         Debug.Log($"[GameTime] Start: {GetFullTimestamp()}");
     }
     void Update()
@@ -31,6 +31,14 @@ public class NPCGlobalTimer : MonoBehaviour
             timer = 0f;
             currentDateTime = currentDateTime.AddHours(1);
             NotifyNPCs();
+        }
+    }
+
+    private void EnsureInitialized()
+    {
+        if (currentDateTime == default)
+        {
+            currentDateTime = new DateTime(startYear, startMonth, startDay, startHour, 0, 0);
         }
     }
 
@@ -52,35 +60,69 @@ public class NPCGlobalTimer : MonoBehaviour
         }
     }
 
-    public int GetCurrentHour() => currentDateTime.Hour;
-    public int GetCurrentDay() => currentDateTime.Day;
-    public int GetCurrentMonth() => currentDateTime.Month;
-    public int GetCurrentYear() => currentDateTime.Year;
-    public DayOfWeek GetCurrentDayOfWeek() => currentDateTime.DayOfWeek;
-    public DateTime GetCurrentDateTime() => currentDateTime;
+    public int GetCurrentHour()
+    {
+        EnsureInitialized();
+        return currentDateTime.Hour;
+    }
+
+    public int GetCurrentDay()
+    {
+        EnsureInitialized();
+        return currentDateTime.Day;
+    }
+
+    public int GetCurrentMonth()
+    {
+        EnsureInitialized();
+        return currentDateTime.Month;
+    }
+
+    public int GetCurrentYear()
+    {
+        EnsureInitialized();
+        return currentDateTime.Year;
+    }
+
+    public DayOfWeek GetCurrentDayOfWeek()
+    {
+        EnsureInitialized();
+        return currentDateTime.DayOfWeek;
+    }
+
+    public DateTime GetCurrentDateTime()
+    {
+        EnsureInitialized();
+        return currentDateTime;
+    }
 
     public string GetCurrentDateString()
     {
+        EnsureInitialized();
         return currentDateTime.ToString("yyyy-MM-dd");
     }
 
     public string GetCurrentDayOfWeekString()
     {
+        EnsureInitialized();
         return currentDateTime.DayOfWeek.ToString();
     }
 
     public string GetCurrentHourString()
     {
+        EnsureInitialized();
         return currentDateTime.ToString("HH:mm");
     }
 
     public string GetFullTimestamp()
     {
+        EnsureInitialized();
         return currentDateTime.ToString("dddd, yyyy-MM-dd HH:mm");
     }
 
     public string FormatMemoryTimestamp()
     {
+        EnsureInitialized();
         return currentDateTime.ToString("yyyy-MM-dd HH:mm dddd");
     }
 }
