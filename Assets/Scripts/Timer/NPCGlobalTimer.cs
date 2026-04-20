@@ -5,7 +5,7 @@ using System;
 
 public class NPCGlobalTimer : MonoBehaviour
 {
-    public float secondsPerHour = 60f; // 1 minute = 1 game hour
+    public float secondsPerHour = 15f; // 15 seconds = 1 game hour (4x faster than original)
 
     [Header("Starting in-game date/time")]
     [SerializeField] private int startYear = 2026;

@@ -65,6 +65,11 @@ public class ConversationFactory : MonoBehaviour
         }
     }
 
+    public ConversationSession GetActiveSession(string key)
+    {
+        return chatbotManager.GetActiveSession(key);
+    }
+
     public bool StopNPCConversation(NPC npc1, NPC npc2)
     {
         string convoID = (npc1.idx < npc2.idx) ? 

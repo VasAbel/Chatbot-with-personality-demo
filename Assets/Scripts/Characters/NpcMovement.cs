@@ -9,19 +9,32 @@ public class NpcMovement : Movement
     private string currentTargetPlaceId;
     public string CurrentTargetPlaceId => currentTargetPlaceId;
 
+    // --- Wander / test mode ---
+    // Set WanderMode = true to ignore the schedule and roam randomly.
+    // Expose in Inspector so you can toggle it at runtime without code.
+    [Header("Test Mode")]
+    public bool WanderMode = false;
+    [Tooltip("How many seconds to wait at each random spot before picking the next one.")]
+    public float wanderIdleSeconds = 1.5f;
+    [Tooltip("Max distance from spawn position to wander. Set to match your map size.")]
+    public float wanderRadius = 8f;
+
+    private Vector3 _spawnPos;
+    private float _wanderIdleTimer = 0f;
+
     void Awake()
     {
         agent = GetComponent<NavMeshAgent>();
         if (agent != null)
         {
-            
-            agent.speed = speed; 
+            agent.speed = speed;
             agent.angularSpeed = 720f;
             agent.acceleration = 6f;
             agent.stoppingDistance = 0.02f;
             agent.updateRotation = false;
             agent.updateUpAxis = false;
         }
+        _spawnPos = transform.position;
     }
 
     void Update()
@@ -30,6 +43,13 @@ public class NpcMovement : Movement
         {
             movement = Vector3.zero;
             if (agent) agent.isStopped = true;
+            return;
+        }
+
+        // --- Wander mode: pick random NavMesh points, ignore schedule ---
+        if (WanderMode)
+        {
+            UpdateWander();
             return;
         }
 
@@ -65,7 +85,6 @@ public class NpcMovement : Movement
             }
             else
             {
-                // Optional: zero out any accidental tilt if it ever appears
                 var e = transform.rotation.eulerAngles;
                 transform.rotation = Quaternion.Euler(0f, e.y, 0f);
             }
@@ -78,7 +97,7 @@ public class NpcMovement : Movement
                 Vector3 direction = (destination.position - transform.position).normalized;
                 movement = direction;
                 float distance = Vector3.Distance(transform.position, destination.position);
-                if (distance < 0.2f) // slightly larger than before to avoid jitter
+                if (distance < 0.2f)
                 {
                     movement = Vector3.zero;
                     canMove = false;
@@ -90,6 +109,47 @@ public class NpcMovement : Movement
                 movement = Vector3.zero;
             }
         }
+    }
+
+    private void UpdateWander()
+    {
+        if (agent == null) return;
+
+        bool arrived = !agent.pathPending && agent.remainingDistance <= agent.stoppingDistance;
+
+        if (arrived)
+        {
+            _wanderIdleTimer -= Time.deltaTime;
+            if (_wanderIdleTimer <= 0f)
+                PickRandomWanderPoint();
+        }
+
+        // Mirror rotation logic for wander movement too
+        if (agent.velocity.sqrMagnitude > 0.0001f)
+        {
+            Vector3 dir = new Vector3(agent.velocity.x, 0f, agent.velocity.z);
+            if (dir.sqrMagnitude > 0.0001f)
+                transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+        }
+    }
+
+    private void PickRandomWanderPoint()
+    {
+        for (int attempt = 0; attempt < 10; attempt++)
+        {
+            Vector2 rand2d = Random.insideUnitCircle * wanderRadius;
+            Vector3 candidate = _spawnPos + new Vector3(rand2d.x, 0f, rand2d.y);
+
+            if (UnityEngine.AI.NavMesh.SamplePosition(candidate, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas))
+            {
+                agent.isStopped = false;
+                agent.SetDestination(hit.position);
+                _wanderIdleTimer = wanderIdleSeconds;
+                return;
+            }
+        }
+        // All attempts failed — just wait and retry next frame
+        _wanderIdleTimer = 1f;
     }
 
     protected override void FixedUpdate()

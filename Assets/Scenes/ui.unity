@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641275, b: 0.5748171, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -849,6 +849,7 @@ MonoBehaviour:
   memory:
     corePersonality: 
     currentThoughts: []
+    knownRumors: []
 --- !u!54 &231953370
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1733,6 +1734,7 @@ MonoBehaviour:
   memory:
     corePersonality: 
     currentThoughts: []
+    knownRumors: []
 --- !u!114 &728550591
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1748,6 +1750,9 @@ MonoBehaviour:
   speed: 2
   movement: {x: 0, y: 0, z: 0}
   canMove: 1
+  WanderMode: 0
+  wanderIdleSeconds: 1.5
+  wanderRadius: 8
 --- !u!54 &728550595
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2138,6 +2143,50 @@ Transform:
   - {fileID: 346967015}
   - {fileID: 603782814}
   - {fileID: 1011244707}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &828394174
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 828394176}
+  - component: {fileID: 828394175}
+  m_Layer: 0
+  m_Name: Rumormanager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &828394175
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 828394174}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06189c7b89b728b4aaa2db23449144a2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &828394176
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 828394174}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1.0349388, y: 14.271599, z: -19.452263}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &872017952
@@ -2725,6 +2774,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   secondsPerHour: 20
+  startYear: 2026
+  startMonth: 1
+  startDay: 1
+  startHour: 8
 --- !u!4 &1056375555
 Transform:
   m_ObjectHideFlags: 0
@@ -3389,6 +3442,7 @@ MonoBehaviour:
   client: {fileID: 1259602432}
   userInputField: {fileID: 1767314832}
   messageInputField: {fileID: 0}
+  npcTurnDelaySeconds: 3
   logMemoryDeltasToConsole: 1
   logMemoryDeltasToFile: 1
 --- !u!114 &1259602431
@@ -4245,7 +4299,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1026502101}
   m_HandleRect: {fileID: 1026502100}
   m_Direction: 0
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -4758,3 +4812,4 @@ SceneRoots:
   - {fileID: 1056375555}
   - {fileID: 1590455858}
   - {fileID: 808696157}
+  - {fileID: 828394176}

@@ -40,7 +40,7 @@ public class GptClient : ChatClient
     }
 
     public override async Task<string> SendChatMessageAsync(string messageContent)
-    {  
+    {
         /*string first = conversationHistory.First().Content;
         string last = conversationHistory.Last().Content;
         string lastRole = conversationHistory.Last().Role;
@@ -76,7 +76,7 @@ public class GptClient : ChatClient
         {
             Model = "gpt-4o-mini",
             Messages = conversationHistory,
-            MaxTokens = 120,
+            MaxTokens = 40, // Much shorter responses
             PresencePenalty = 1,
             FrequencyPenalty = 1,
         };
@@ -145,7 +145,7 @@ public class GptClient : ChatClient
         return fallbackJson;  // safe fallback for non-memory JSON
     }
 
-    
+
     public async Task<string> RequestJsonAsync(string system, string user, int maxTokens = 500)
     {
         EnsureClientInitialized();
@@ -181,7 +181,7 @@ public class GptClient : ChatClient
     }
 
     private string Pick(string[] options) => options[rng.Next(options.Length)];
-    
+
     private string GenerateFallbackReply(string userMessage)
     {
         // Special case: first-turn starter used by ConsoleChatbot
@@ -289,49 +289,50 @@ public class GptClient : ChatClient
         string situationBlock = string.IsNullOrWhiteSpace(situationalContext)
             ? "- (no extra situational context)\n"
             : situationalContext.Trim() + "\n";
-    
+
+        // Build rumor snippet from RumorManager
+        string rumorSnippet = "- (you haven't heard any rumors lately)\n";
+        if (RumorManager.Instance != null)
+        {
+            var rumors = RumorManager.Instance.GetRumorsKnownBy(currentSpeaker.getName());
+            if (rumors != null && rumors.Count > 0)
+            {
+                rumorSnippet = string.Join("\n", rumors.Select(r =>
+                    $"- You heard from {r.heardFrom}: \"{r.currentText}\""));
+            }
+        }
+
         string sys = $@"
-            You are role-playing the NPC **{currentSpeaker.getName()}** in a small village.
-            Speak naturally, briefly, and in character.
-            Your character description:
-            # Who you are (stable personality, values, long-term traits
+            You are {currentSpeaker.getName()}, a villager.
+            Talk like a normal person.
+
+            # You
             {coreBlock}
 
-            # Social memory – people you already know
-            You currently remember these things about the following people:
-            {(string.IsNullOrWhiteSpace(socialSnippet) ? "- (none yet)\n" : socialSnippet)}
+            # What you know
+            {(string.IsNullOrWhiteSpace(socialSnippet) ? "- Not much yet\n" : socialSnippet)}
 
-            Names you recognize: {knownPeople}
-
-            # Current plans & thoughts (short-term, may fade or change)
+            # On your mind
             {thoughtsSnippet}
 
-            # Situation right now
+            # Rumors you've heard
+            {rumorSnippet}
+
+            # Here now
             {situationBlock}
 
-            # Style & norms
-            - Always reply **as {currentSpeaker.getName()}** in natural prose.
-            - Do **NOT** prefix your reply with any name or label (no ""Tim:"", ""Amy:"", etc.).
-            - Never dump your whole biography; reveal small pieces across turns.
-            - Before each reply, conceptually check whether your conversation partner's name
-                appears in your social memory.
-                    - If they **ARE** in social memory: treat them as someone you already know.
-                    • Do NOT introduce yourself again.
-                    • Do NOT re-explain basic facts about yourself you've already shared.
-                    • You may lightly reference things you remember about them or past topics.
-                    - If they are **NOT** in social memory: treat this as your first meeting and
-                    briefly introduce yourself **once**.
-            - Keep replies concise: usually 1–3 sentences.
-            - Use core personality as your default behaviour; use social memory implicitly
-            (do **not** talk about ""memory"", ""files"", or ""logs"" — just act as if you remember).
-            - High-salience thoughts are more likely to come up; you may mention or act on them more naturally.
-            - High-confidence thoughts: speak and plan decisively.
-            - Low-confidence thoughts: express uncertainty, hesitation, or openness to changing your mind.
-            - Debate respectfully. Stand by your opinion until not persuaded, but if someone gives strong arguments, 
-                you may genuinely change your view and mention that change in a natural way.
+            # RULES - VERY IMPORTANT
+            - ONE sentence MAXIMUM
+            - 5-8 words ideally
+            - Simple words only
+            - No long explanations
+            - Normal chat, not AI talk
+            - Use contractions
+            - Ask short questions
+            - Mention recent stuff naturally
             ";
-        
-        conversationHistory.Add(new ChatMessage { Role = "system", Content = sys});
+
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = sys });
 
         bool isNpc1Speaking = currentSpeaker == npc1;
 

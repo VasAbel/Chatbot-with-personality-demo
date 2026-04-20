@@ -6,7 +6,7 @@ public class UserConversationSession : ConversationSession
 {
     private NPC npc;
     private bool isUserTurn = true;
-
+    public NPC GetNPC() => npc;
     private readonly string currentArea;
     private readonly string heading;
     private readonly string timestamp;

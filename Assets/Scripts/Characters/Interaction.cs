@@ -100,6 +100,9 @@ public class Interaction : MonoBehaviour
                 npcComponent.isInConversation = false;
                 npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
+                
+                // Trigger NPC-NPC conversation after player talks to Amy
+                TriggerPostPlayerConversation();
             }
         }
         else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation)
@@ -156,6 +159,7 @@ public class Interaction : MonoBehaviour
             }
             string sessionKey = npcs[0].getName() + "-" + npcs[1].getName();
             factory.RegisterNPC(sessionKey, npcs);
+            Debug.Log($"[Conversation Start] {npcComponent.getName()} and {otherNPCComponent.getName()} started talking");
         }
     }
 
@@ -170,17 +174,35 @@ public class Interaction : MonoBehaviour
         else if (other.CompareTag("NPC_Object"))
         {
             NPC otherNPCComponent = other.GetComponent<NPC>();
+            StartCoroutine(DelayedStop(npcComponent, otherNPCComponent, 15f));
+        }
+    }
 
-            bool stopped = factory.StopNPCConversation(npcComponent, otherNPCComponent);
+    private IEnumerator DelayedStop(NPC a, NPC b, float delay)
+    {
+        string sessionKey = (a.idx < b.idx)
+            ? $"{a.getName()}-{b.getName()}"
+            : $"{b.getName()}-{a.getName()}";
 
-            if (stopped)
-            {
-                npcComponent.isInConversation = false;
-                npcMovement.canMove = true;
+        // Wait only if conversation hasn't had enough turns yet
+        float waited = 0f;
+        while (waited < delay)
+        {
+            var session = factory.GetActiveSession(sessionKey);
+            if (session != null && session.TurnCount >= 4)
+                break; // enough was said, let them go
+            yield return new WaitForSeconds(0.5f);
+            waited += 0.5f;
+        }
 
-                otherNPCComponent.isInConversation = false;
-                otherNPCComponent.GetComponent<NpcMovement>().canMove = true;
-            }
+        bool stopped = factory.StopNPCConversation(a, b);
+        if (stopped)
+        {
+            Debug.Log($"[Conversation End] {a.getName()} and {b.getName()} finished talking");
+            a.isInConversation = false;
+            a.GetComponent<NpcMovement>().canMove = true;
+            b.isInConversation = false;
+            b.GetComponent<NpcMovement>().canMove = true;
         }
     }
 
@@ -192,5 +214,53 @@ public class Interaction : MonoBehaviour
                 return child.gameObject;
         }
         return null;
+    }
+
+    private void TriggerPostPlayerConversation()
+    {
+        if (npcComponent == null || npcComponent.getName() != "Amy")
+            return;
+
+        // Find another NPC to talk to (preferably Gabriel for testing)
+        NPC[] allNPCs = FindObjectsOfType<NPC>();
+        NPC targetNPC = null;
+
+        foreach (NPC npc in allNPCs)
+        {
+            if (npc != npcComponent && !npc.isInConversation)
+            {
+                // Prioritize Gabriel for testing rumor propagation
+                if (npc.getName() == "Gabriel")
+                {
+                    targetNPC = npc;
+                    break;
+                }
+                // Fallback to any other available NPC
+                else if (targetNPC == null)
+                {
+                    targetNPC = npc;
+                }
+            }
+        }
+
+        if (targetNPC != null)
+        {
+            Debug.Log($"[Test] {npcComponent.getName()} will talk to {targetNPC.getName()} when they meet naturally at scheduled locations");
+            
+            // No forced movement needed - they'll meet at Well (hours 12-13, 18-19) or other shared locations
+            // The conversation content stays in Amy's memory until she meets Gabriel
+        }
+    }
+
+    private IEnumerator DelayedConversationStart(NPC otherNPC, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        
+        if (!npcComponent.isInConversation && !otherNPC.isInConversation)
+        {
+            List<NPC> npcs = new List<NPC> { npcComponent, otherNPC };
+            string sessionKey = npcs[0].getName() + "-" + npcs[1].getName();
+            factory.RegisterNPC(sessionKey, npcs);
+        }
     }
 }

@@ -2,7 +2,7 @@ using UnityEngine;
 
 public abstract class Movement : MonoBehaviour
 {
-    public float speed = 2f;
+    public float speed = 1.5f; // be slower than player
     protected Rigidbody rb;
     public Vector3 movement;
     public bool canMove = true;

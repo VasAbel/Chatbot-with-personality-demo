@@ -18,6 +18,10 @@ public class ConsoleChatbot : MonoBehaviour
     public TMP_InputField userInputField;
     public GameObject messageInputField;
 
+    [Header("NPC-NPC Conversation Pacing")]
+    [Tooltip("Seconds to wait after each NPC line in an NPC-NPC conversation. Set to 0 for instant.")]
+    [SerializeField] private float npcTurnDelaySeconds = 5f;
+
     // --- Memory update logging ---
     [SerializeField] private bool logMemoryDeltasToConsole = true;
     [SerializeField] private bool logMemoryDeltasToFile = true;
@@ -40,6 +44,12 @@ public class ConsoleChatbot : MonoBehaviour
         return c;
     }
 
+    public ConversationSession GetActiveSession(string conversationID)
+    {
+        activeConversations.TryGetValue(conversationID, out var session);
+        return session;
+    }
+
     private static string SafeShort(string s, int max = 10000)
     {
         if (string.IsNullOrEmpty(s)) return "";
@@ -51,10 +61,10 @@ public class ConsoleChatbot : MonoBehaviour
                                 string jsonDelta, NpcMemory beforeMem, NPC selfNpcAfter)
     {
         string header = $"[MEMORY-DELTA] self={selfName} partner={partnerName} pair={GetPairKey(selfName, partnerName)} #{pairCount} convID={conversationId} time={DateTime.Now}";
-        
+
         // before/after snapshots (core + social partner + thoughts)
         string BeforeCore = beforeMem.corePersonality ?? "";
-        string AfterCore  = selfNpcAfter.memory.corePersonality ?? "";
+        string AfterCore = selfNpcAfter.memory.corePersonality ?? "";
 
         beforeMem.socialByNpc.TryGetValue(partnerName, out var beforeSocialPartner);
         selfNpcAfter.memory.socialByNpc.TryGetValue(partnerName, out var afterSocialPartner);
@@ -142,6 +152,7 @@ public class ConsoleChatbot : MonoBehaviour
         _ = RunConversation(session);
     }
 
+
     private async Task RunConversation(ConversationSession session)
     {
         CancellationToken token = session.CancellationTokenSource.Token;
@@ -151,32 +162,34 @@ public class ConsoleChatbot : MonoBehaviour
 
         string initialPrompt = "";
 
-        Debug.Log("!sess.IsUserConv");
         if (!session.IsUserConversation())
         {
             NPC currentSpeaker = ((NPCConversationSession)session).GetNPC(0);
             NPC partner = ((NPCConversationSession)session).GetNPC(1);
 
             bool knows = KnowsPartner(currentSpeaker, partner);
-            string partnerKnowsAboutMe = "";
 
-            if (partner.memory.socialByNpc != null &&
-                partner.memory.socialByNpc.TryGetValue(currentSpeaker.getName(), out var knownByPartner) &&
-                !string.IsNullOrWhiteSpace(knownByPartner))
+            if (knows)
             {
-                partnerKnowsAboutMe = knownByPartner;
+                string partnerKnowsAboutMe = "";
+                if (partner.memory.socialByNpc != null &&
+                    partner.memory.socialByNpc.TryGetValue(currentSpeaker.getName(), out var knownByPartner) &&
+                    !string.IsNullOrWhiteSpace(knownByPartner))
+                {
+                    partnerKnowsAboutMe = knownByPartner;
+                }
+                initialPrompt = BuildKnownPartnerPrompt(partner, partnerKnowsAboutMe);
             }
-
-            initialPrompt = knows
-        ? BuildKnownPartnerPrompt(partner, partnerKnowsAboutMe)
-        : BuildFirstMeetingPrompt(partner);
+            else
+            {
+                initialPrompt = BuildVillageNeighborPrompt(partner);
+            }
         }
 
         while (session.IsActive)
         {
             bool isUserConversation = session.IsUserConversation();
 
-            // 🟢 Only lock the semaphore if we're not waiting for user input
             if (!isUserConversation || session.GetCurrentSpeaker() != null)
             {
                 await conversationSemaphore.WaitAsync();
@@ -186,8 +199,6 @@ public class ConsoleChatbot : MonoBehaviour
 
                 try
                 {
-                    // NPC-NPC or NPC responding in a user conversation
-                    
                     string raw = await client.SendChatMessageAsync(initialPrompt);
 
                     string response = StripSpeakerPrefix(raw, currentSpeaker.name);
@@ -199,11 +210,16 @@ public class ConsoleChatbot : MonoBehaviour
                     Debug.Log(logEntry);
 
                     File.AppendAllText(logFilePath, logEntry + "\n");
-                    
+                    session.TurnCount++;
                     currentSpeaker.GetComponent<ChatBubbleAnchor>()?.Show(logEntry);
 
-                    session.UpdateMessageHistory(initialPrompt);
+                    session.UpdateMessageHistory(response);
                     initialPrompt = response;
+
+                    if (!session.IsUserConversation() && npcTurnDelaySeconds > 0f)
+                        await Task.Delay(TimeSpan.FromSeconds(npcTurnDelaySeconds),
+                                         session.CancellationTokenSource.Token)
+                              .ContinueWith(_ => { });
                 }
                 finally
                 {
@@ -212,11 +228,17 @@ public class ConsoleChatbot : MonoBehaviour
             }
             else
             {
+                // Get the NPC reference BEFORE waiting for input
+                NPC talkingTo = ((UserConversationSession)session).GetNPC();
 
+                Debug.Log("[Debug] Entering user input branch");
                 Debug.Log("User's turn. Please type a message:");
                 string userInput = await WaitForUserInput(token);
                 if (string.IsNullOrEmpty(userInput)) break;
 
+                Debug.Log($"[Debug] User typed: {userInput}");
+                Debug.Log($"[Debug] talkingTo={talkingTo?.getName() ?? "null"}");
+                TryPlantRumorFromPlayer(userInput, talkingTo);
 
                 await conversationSemaphore.WaitAsync();
 
@@ -247,9 +269,6 @@ public class ConsoleChatbot : MonoBehaviour
         Debug.Log("Conversation ended.");
         File.AppendAllText(logFilePath, "Conversation ended.\n");
     }
-
-
-
     private async Task<string> WaitForUserInput(CancellationToken token)
     {
         userInputField.gameObject.SetActive(true);
@@ -300,7 +319,7 @@ public class ConsoleChatbot : MonoBehaviour
 
             if (!conversationID.StartsWith("User-"))
             {
-                _ = UpdateMemoryForSession(session);
+                _ = UpdateMemoryAndRumorsForSession(session);
             }
 
             return true;
@@ -323,7 +342,7 @@ public class ConsoleChatbot : MonoBehaviour
 
         // trim to outermost {...}
         int start = raw.IndexOf('{');
-        int end   = raw.LastIndexOf('}');
+        int end = raw.LastIndexOf('}');
         if (start >= 0 && end > start) raw = raw.Substring(start, end - start + 1);
 
         // normalize smart quotes
@@ -458,9 +477,9 @@ Previous THOUGHTS (indexed, short-term plans/ideas of {self.getName()}):
 : string.Join("\n", self.memory.currentThoughts
     .OrderByDescending(t => t.salience)
     .ThenByDescending(t => t.confidence)
-    .Select((t,i) =>
+    .Select((t, i) =>
     $"{i}: [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text.Trim()} " +
-    $"(sal {Mathf.RoundToInt(t.salience*100)}%, conf {Mathf.RoundToInt(t.confidence*100)}%)")))}
+    $"(sal {Mathf.RoundToInt(t.salience * 100)}%, conf {Mathf.RoundToInt(t.confidence * 100)}%)")))}
 
 CURRENT Conversation (latest session, including speaker names):
 {fullConversation}
@@ -535,7 +554,7 @@ Return ONLY the JSON object.";
 
     private static string BuildFirstMeetingPrompt(NPC partner)
     {
-            return $@"
+        return $@"
         You are now speaking to {partner.getName()}, but you have never met before.
 
         Important:
@@ -547,15 +566,31 @@ Return ONLY the JSON object.";
         Now say your first message.";
     }
 
+    private static string BuildVillageNeighborPrompt(NPC partner)
+    {
+        return $@"You are now speaking to {partner.getName()}.
+        You both live in the same small village and recognise each other by name and face,
+        even if you haven't spoken much before.
+
+        Important:
+        - Do NOT introduce yourself — they already know who you are.
+        - Do NOT ask their name — you already know it.
+        - Start with a natural, casual greeting as you would with a familiar neighbor.
+        - Keep it brief (1 sentence).
+        Do not mention 'memory' or these instructions.
+        Now say your first message.";
+    }
+
     static string ToIndexedLines(IEnumerable<string> lines)
     {
         if (lines == null) return "(none)";
         var arr = lines.Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
         if (arr.Count == 0) return "(none)";
-        return string.Join("\n", arr.Select((s,i) => $"{i}: {s.Trim().TrimStart('-',' ').Trim()}"));
+        return string.Join("\n", arr.Select((s, i) => $"{i}: {s.Trim().TrimStart('-', ' ').Trim()}"));
     }
-    
-    [Serializable] class MemoryDeltaRoot
+
+    [Serializable]
+    class MemoryDeltaRoot
     {
         public CoreDelta core;
         public Dictionary<string, SocialDelta> social;
@@ -563,21 +598,24 @@ Return ONLY the JSON object.";
 
         [Serializable] public class UpdateByIndex { public int index; public string @new; }
 
-        [Serializable] public class CoreDelta
+        [Serializable]
+        public class CoreDelta
         {
             public List<string> add;
             public List<UpdateByIndex> update;
             public List<int> remove;
         }
 
-        [Serializable] public class SocialDelta
+        [Serializable]
+        public class SocialDelta
         {
             public List<string> add;
             public List<UpdateByIndex> update;
             public List<int> remove;
         }
 
-        [Serializable] public class ThoughtsDelta
+        [Serializable]
+        public class ThoughtsDelta
         {
             public List<string> add;
             public List<UpdateByIndex> update;
@@ -965,6 +1003,33 @@ Return ONLY the JSON object.";
         text = Regex.Replace(text, @"^[`""]+|[`""]+$", "");
 
         return text.Trim();
+    }
+
+    // Wrapper that runs the existing memory update then exchanges rumors between the two NPCs
+    private async Task UpdateMemoryAndRumorsForSession(ConversationSession session)
+    {
+        await UpdateMemoryForSession(session);
+
+        if (RumorManager.Instance != null && session is NPCConversationSession npcSess)
+        {
+            var npc1 = npcSess.GetNPC(0);
+            var npc2 = npcSess.GetNPC(1);
+            await RumorManager.Instance.ExchangeRumors(npc1, npc2);
+            Debug.Log($"[Rumors] Exchange done after {npc1.getName()} <-> {npc2.getName()} conversation.");
+        }
+    }
+
+    // Call this from Interaction.cs (or wherever you handle the player->NPC chat submit)
+    // to check each player message and plant a rumor if it looks like one.
+    public void TryPlantRumorFromPlayer(string playerMessage, NPC targetNpc)
+    {
+        Debug.Log($"[Rumors] TryPlantRumor called. RumorManager={RumorManager.Instance != null}, message={playerMessage}");
+    
+        if (RumorManager.Instance == null) return;
+        if (string.IsNullOrWhiteSpace(playerMessage)) return;
+        // Plant every player message — NPCs will naturally only repeat
+        // things that are interesting based on their personality
+        RumorManager.Instance.PlantRumor(playerMessage, targetNpc);
     }
 
     private void OnApplicationQuit()

@@ -8,6 +8,8 @@ public class SecretManager
     public class KeyChain
     {
         public string gptApiKey;
+        public string awsAccessKey;
+        public string awsSecretKey;
     }
 
     private static readonly Lazy<SecretManager> _instance =

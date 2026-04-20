@@ -18,4 +18,6 @@ public abstract class ConversationSession
     {
         return messageHistory;
     }
+    public int TurnCount { get; set; } = 0;
+    public void IncrementTurnCount() => TurnCount++;
 }

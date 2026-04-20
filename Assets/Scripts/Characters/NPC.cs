@@ -280,27 +280,36 @@ Return only the JSON object.";
         {
             case "Amy":
                 dailySchedule = new List<string>
-                {
-                    "Well", "Well", "Market", "Townhall", "Townhall", "Well", "Market", "Market",
-                    "House", "House", "Market", "Market", "Well", "House", "House", "Market",
-                    "Market", "House", "House", "House", "House", "House", "House", "House"
-                };
+    {
+        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+        "School", "School", "School", "School",
+        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+        "HouseOfAmy", "Well", "HouseOfAmy", "HouseOfAmy",
+        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy"
+    };
                 break;
             case "Tim":
                 dailySchedule = new List<string>
-                {
-                    "Townhall", "House", "Market", "Market", "Market", "Market", "Market", "House",
-                    "Market", "Market", "Market", "Market", "Well", "House", "House", "Market",
-                    "Townhall", "Townhall", "House", "House", "House", "House", "House", "House"
-                };
+    {
+        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
+        "HouseOfTim", "HouseOfTim", "HouseOfTim", "WoodworkingShop",
+        "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
+        "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
+        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
+        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim"
+    };
                 break;
             case "Gabriel":
                 dailySchedule = new List<string>
-                {
-                    "Well", "Well", "Well", "Well", "Townhall", "Townhall", "Well", "Market",
-                    "Townhall", "Townhall", "Townhall", "House", "House", "House", "Market", "Well",
-                    "House", "House", "House", "House", "House", "House", "House", "House"
-                };
+    {
+        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
+        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "School",
+        "School", "School", "School", "School",
+        "WoodworkingShop", "WoodworkingShop", "HouseOfGabriel", "HouseOfGabriel",
+        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
+        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel"
+    };
                 break;
             default:
                 Debug.LogWarning($"No schedule defined for NPC: {npcName}, using 'House' all day.");
@@ -324,10 +333,14 @@ Return only the JSON object.";
             return;
         }
 
-        if(hour == 0)
+        // Only regenerate schedule at midnight (hour 0) to reduce LLM calls
+        if(hour == 0 && dailySchedule.Count > 0)
+        {
+            Debug.Log($"[{npcName}] Using cached schedule from yesterday.");
+        }
+        else if (dailySchedule.Count == 0) // First time initialization
         {
             bool ok = await TryGenerateScheduleFromLLM();
-
             if (!ok || dailySchedule == null || dailySchedule.Count != 24)
             {
                 Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");

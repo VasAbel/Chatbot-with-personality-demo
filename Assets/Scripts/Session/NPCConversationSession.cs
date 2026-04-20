@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 public class NPCConversationSession : ConversationSession
@@ -38,33 +39,46 @@ public class NPCConversationSession : ConversationSession
         return (currentSpeakerIndex == 0) ? npc1 : npc2;
     }
 
+    // In NPCConversationSession.cs
     public override void UpdateMessageHistory(string message)
-    {  
-        currentSpeakerIndex = 1 - currentSpeakerIndex;
+    {
         NPC currentSpeaker = GetCurrentSpeaker();
         string speakerName = currentSpeaker != null ? currentSpeaker.getName() : null;
 
+        currentSpeakerIndex = 1 - currentSpeakerIndex; // toggle AFTER reading
+
         if (message.StartsWith("You are now speaking to"))
-        {
             messageHistory.Add(message);
-        }   
         else
-        {
             messageHistory.Add($"{speakerName}: {message}");
-        }
     }
 
+    // In NPCConversationSession.cs
     private string BuildSituationFor(NPC speaker)
     {
         bool isNpc1 = speaker == npc1;
-
         string currentArea = isNpc1 ? npc1CurrentArea : npc2CurrentArea;
         string heading = isNpc1 ? npc1Heading : npc2Heading;
 
+        string rumorBlock = "";
+        if (RumorManager.Instance != null)
+        {
+            var rumors = RumorManager.Instance.GetRumorsKnownBy(speaker.getName());
+            if (rumors != null && rumors.Count > 0)
+            {
+                var lines = rumors.Select(r => $"- \"{r.currentText}\"");
+                rumorBlock = $"\n\nIMPORTANT: You have exciting news to share. Your FIRST message MUST mention this — work it naturally into your greeting:\n{string.Join("\n", lines)}";
+            }
+        }
+        else
+        {
+            Debug.LogWarning("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+        }
+
         return
-$@"- Current in-game time: {conversationTimestamp}
+    $@"- Current in-game time: {conversationTimestamp}
 - You are currently at: {currentArea}
-- Before meeting your conversation partner, you were heading to: {heading}";
+- Before meeting your conversation partner, you were heading to: {heading}{rumorBlock}";
     }
 
     public override void PrepareForNextSpeaker(GptClient client)

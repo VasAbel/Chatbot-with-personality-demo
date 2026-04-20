@@ -17,4 +17,5 @@ public class NpcMemory // per NPC
     public string corePersonality;                        // concise, stable; starts from desc.description
     public Dictionary<string,string> socialByNpc = new(); // otherName -> summary you know about them
     public List<Thought> currentThoughts = new();         // ephemeral plans/ideas
+    public List<Rumor> knownRumors = new();               // rumors this NPC has heard
 }
