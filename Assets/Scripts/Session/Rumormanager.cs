@@ -91,7 +91,10 @@ public class RumorManager : MonoBehaviour
             {
                 string distorted = await DistortRumor(rumor.currentText, sender.getName(), receiverName);
                 if (!string.IsNullOrWhiteSpace(distorted))
+                {
+                    Debug.Log($"[Rumors] Distortion: \"{rumor.currentText}\" -> \"{distorted}\"");
                     textToPass = distorted;
+                }
             }
 
             var passed = rumor.PassTo(receiverName, textToPass);
@@ -143,6 +146,38 @@ public class RumorManager : MonoBehaviour
         {
             Debug.LogWarning($"[Rumors] Distortion LLM call failed: {ex.Message}");
             return null;
+        }
+    }
+
+    public async Task TryGenerateRumorFromConversation(NPC npc, string conversationText)
+    {
+        if (_gpt == null) return;
+
+        string system = "You are deciding whether an NPC in a village simulation should spread a rumor based on a conversation they just had. " +
+                        "A rumor is a piece of interesting, surprising, or gossip-worthy information about another person, place, or event. " +
+                        "Greetings, small talk, and opinions are NOT rumors. " +
+                        "Reply with plain text only — not json — just the rumor as a single sentence, or exactly the word NONE if nothing is rumor-worthy.";
+
+
+        string user = $"{npc.getName()} just had this conversation:\n\"{conversationText}\"\n\n" +
+                      "Is there anything rumor-worthy here? If yes, write it as a rumor {npc.getName()} would naturally spread. If no, reply NONE.";
+
+        try
+        {
+            string result = await _gpt.RequestGenericJsonAsync(system, user, fallbackJson: "NONE", maxTokens: 60);
+            result = result.Trim().Trim('"');
+
+            if (string.IsNullOrWhiteSpace(result) || result.Equals("NONE", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (result.StartsWith("{")) return; // JSON error fallback
+
+            Debug.Log($"[Rumors] {npc.getName()} generated organic rumor: \"{result}\"");
+            PlantRumor(result, npc);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[Rumors] Organic rumor generation failed: {ex.Message}");
         }
     }
 }

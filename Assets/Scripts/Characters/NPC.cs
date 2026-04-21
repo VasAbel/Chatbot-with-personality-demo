@@ -206,7 +206,7 @@ Return only the JSON object.";
         string rawJson;
         try
         {
-            // using your existing JSON-enforcing helper
+            //using your existing JSON-enforcing helper
             rawJson = await client.RequestGenericJsonAsync(system, user, maxTokens: 400);
         }
         catch (Exception ex)
@@ -241,17 +241,17 @@ Return only the JSON object.";
         var validSet = new HashSet<string>(placeNames);
         string safeDefault = validSet.Contains("House") ? "House" : placeNames[0];
 
-        // Work on a local list so we can trim/pad
+        //Work on a local list so we can trim/pad
         var hours = resp.hours.ToList();
 
-        // 👇 If too many → trim from the end
+        //If too many → trim from the end
         if (hours.Count > 24)
         {
             Debug.LogWarning($"[{npcName}] Schedule has {hours.Count} entries, trimming to 24.");
             hours = hours.Take(24).ToList();
         }
 
-        // 👇 If too few → repeat last entry until 24
+        //If too few → repeat last entry until 24
         while (hours.Count < 24)
         {
             var last = hours.Count > 0 ? hours[hours.Count - 1] : safeDefault;
@@ -280,36 +280,38 @@ Return only the JSON object.";
         {
             case "Amy":
                 dailySchedule = new List<string>
-    {
-        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
-        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
-        "School", "School", "School", "School",
-        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
-        "HouseOfAmy", "Well", "HouseOfAmy", "HouseOfAmy",
-        "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy"
-    };
+            {
+                "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+                "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+                "School", "School", "School", "School",
+                "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+                "HouseOfAmy", "Well", "HouseOfAmy", "HouseOfAmy",
+                "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy"
+             };
                 break;
+
             case "Tim":
                 dailySchedule = new List<string>
-    {
-        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
-        "HouseOfTim", "HouseOfTim", "HouseOfTim", "WoodworkingShop",
-        "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
-        "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
-        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
-        "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim"
-    };
+            {
+                "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
+                "HouseOfTim", "HouseOfTim", "HouseOfTim", "WoodworkingShop",
+                "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
+                "Well", "Well", "WoodworkingShop", "WoodworkingShop",
+                "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
+                "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim"
+            };
                 break;
+                
             case "Gabriel":
                 dailySchedule = new List<string>
-    {
-        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
-        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "School",
-        "School", "School", "School", "School",
-        "WoodworkingShop", "WoodworkingShop", "HouseOfGabriel", "HouseOfGabriel",
-        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
-        "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel"
-    };
+            {
+                "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
+                "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "School",
+                "School", "School", "School", "School",
+                "Well", "Well", "HouseOfGabriel", "HouseOfGabriel",
+                "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
+                "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel"
+            };
                 break;
             default:
                 Debug.LogWarning($"No schedule defined for NPC: {npcName}, using 'House' all day.");
@@ -327,7 +329,7 @@ Return only the JSON object.";
 
     public async void OnHourPassed(int hour)
     {
-        if (isInConversation && isTalkingToUser)
+        if (isInConversation)
         {
             Debug.Log($"{getName()} is talking to the player. Skipping move this hour.");
             return;

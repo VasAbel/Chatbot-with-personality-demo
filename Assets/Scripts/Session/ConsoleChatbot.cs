@@ -201,7 +201,13 @@ public class ConsoleChatbot : MonoBehaviour
                 {
                     string raw = await client.SendChatMessageAsync(initialPrompt);
 
-                    string response = StripSpeakerPrefix(raw, currentSpeaker.name);
+                    string response = StripSpeakerPrefix(raw, currentSpeaker.getName());
+                    NPCConversationSession npcSess = session as NPCConversationSession;
+                    if (npcSess != null)
+                    {
+                        NPC other = npcSess.GetNPC(0) == currentSpeaker ? npcSess.GetNPC(1) : npcSess.GetNPC(0);
+                        if (other != null) response = StripSpeakerPrefix(response, other.getName());
+                    }
 
                     if (session.CancellationTokenSource.Token.IsCancellationRequested)
                         break;
@@ -211,6 +217,11 @@ public class ConsoleChatbot : MonoBehaviour
 
                     File.AppendAllText(logFilePath, logEntry + "\n");
                     session.TurnCount++;
+                    if (!session.IsUserConversation() && session.TurnCount >= 8)
+                    {
+                        session.IsActive = false;
+                        break;
+                    }
                     currentSpeaker.GetComponent<ChatBubbleAnchor>()?.Show(logEntry);
 
                     session.UpdateMessageHistory(response);
@@ -265,7 +276,17 @@ public class ConsoleChatbot : MonoBehaviour
                 }
             }
         }
-
+        if (!session.IsUserConversation() && session is NPCConversationSession endedSess)
+        {
+            var n1 = endedSess.GetNPC(0);
+            var n2 = endedSess.GetNPC(1);
+            n1.isInConversation = false;
+            n1.GetComponent<NpcMovement>().canMove = true;
+            n2.isInConversation = false;
+            n2.GetComponent<NpcMovement>().canMove = true;
+            Debug.Log($"[Conversation End] {n1.getName()} and {n2.getName()} finished talking");
+            _ = UpdateMemoryAndRumorsForSession(session);
+        }
         Debug.Log("Conversation ended.");
         File.AppendAllText(logFilePath, "Conversation ended.\n");
     }
@@ -1014,7 +1035,16 @@ Return ONLY the JSON object.";
         {
             var npc1 = npcSess.GetNPC(0);
             var npc2 = npcSess.GetNPC(1);
+
+            string fullConversation = string.Join("\n", session.GetMessageHistory());
+
+            // Exchange rumors between them
             await RumorManager.Instance.ExchangeRumors(npc1, npc2);
+
+            // Each NPC might generate a new organic rumor from what was discussed
+            await RumorManager.Instance.TryGenerateRumorFromConversation(npc1, fullConversation);
+            await RumorManager.Instance.TryGenerateRumorFromConversation(npc2, fullConversation);
+
             Debug.Log($"[Rumors] Exchange done after {npc1.getName()} <-> {npc2.getName()} conversation.");
         }
     }
@@ -1024,11 +1054,11 @@ Return ONLY the JSON object.";
     public void TryPlantRumorFromPlayer(string playerMessage, NPC targetNpc)
     {
         Debug.Log($"[Rumors] TryPlantRumor called. RumorManager={RumorManager.Instance != null}, message={playerMessage}");
-    
+
         if (RumorManager.Instance == null) return;
         if (string.IsNullOrWhiteSpace(playerMessage)) return;
-        // Plant every player message — NPCs will naturally only repeat
-        // things that are interesting based on their personality
+        if (playerMessage.Trim().Length < 20) return; // ignore short/junk messages
+
         RumorManager.Instance.PlantRumor(playerMessage, targetNpc);
     }
 
@@ -1043,7 +1073,7 @@ Return ONLY the JSON object.";
         foreach (var session in activeConversations.Values)
         {
             session.IsActive = false;
-            session.CancellationTokenSource.Cancel(); // ←✅ important!
+            session.CancellationTokenSource.Cancel(); //important!
         }
 
         activeConversations.Clear();
