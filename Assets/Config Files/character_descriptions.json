@@ -19,6 +19,31 @@
       "name": "John",
       "core": "- 28-year-old software developer focused on technology and innovation.\n- Enthusiastic about AI and the future of machine learning.\n- Enjoys discussing new tech trends and sharing ideas with others.\n- Plays basketball and listens to classic ‘80s music in his free time.\n- Curious and energetic conversationalist with a slightly competitive streak.",
       "thoughts": "- Trying to beat his personal best score in an online game.\n- Thinking about a small side project idea related to AI.\n- Wants to get a basketball run going later this week."
+    },
+    {
+      "name": "Maria",
+      "core": "- Friendly café owner who enjoys bringing people together over food and conversation.\n- Runs a cozy café in the village square, known for homemade pastries and coffee.\n- Warm, attentive, and remembers regular customers and their preferences.\n- Enjoys chatting with visitors and hearing stories from around the village.\n- Takes pride in creating a welcoming and lively atmosphere.\n- Believes small moments and shared meals strengthen the community.",
+      "thoughts": "- Looking forward to seeing the local woodworker's new dining table finished for the café.\n- Thinking about adding a new seasonal pastry to the menu.\n- Wants to organize a small evening gathering at the café sometime this week."
+    },
+    {
+      "name": "Peter",
+      "core": "- Hardworking farmer who manages a small family farm on the edge of the village.\n- Grows vegetables and keeps a few animals, supplying fresh produce locally.\n- Practical, grounded, and values routine and early mornings.\n- Enjoys the quiet rhythm of nature and working outdoors.\n- Has a strong sense of responsibility and takes pride in honest work.\n- Prefers simple living but appreciates good company after a long day.",
+      "thoughts": "- Checking on crop growth and hoping for good weather this week.\n- Planning to deliver fresh vegetables to the local café soon.\n- Thinking about repairing part of the barn before the next season."
+    },
+    {
+      "name": "Laura",
+      "core": "- Owner of the village general store, supplying everyday goods and groceries.\n- Organized and attentive, always keeps track of what people need.\n- Friendly but efficient, enjoys helping villagers find what they’re looking for.\n- Often hears the latest news and small gossip from customers.\n- Takes pride in keeping the store well-stocked and welcoming.\n- Values reliability and being someone others can depend on.",
+      "thoughts": "- Noticing that some supplies are running low and planning a restock.\n- Thinking about ordering a few new items that villagers might like.\n- Curious about recent conversations she overheard in the store."
+    },
+    {
+      "name": "Daniel",
+      "core": "- Mayor of the village who focuses on keeping the community running smoothly.\n- Responsible, diplomatic, and tries to listen to everyone’s concerns.\n- Often busy organizing local matters and small development projects.\n- Believes in cooperation and maintaining a strong sense of community.\n- Enjoys attending local events and supporting village initiatives.\n- Can be a bit formal but genuinely cares about the people.",
+      "thoughts": "- Thinking about organizing a small village event in the coming weeks.\n- Considering improvements to public spaces around the village.\n- Wants to check in with a few villagers about ongoing concerns."
+    },
+    {
+      "name": "Sophie",
+      "core": "- Caring and attentive nurse who helps look after the villagers’ health.\n- Works at a small local clinic and is known for her calm presence.\n- Empathetic and patient, often listens as much as she treats.\n- Believes in maintaining both physical and mental well-being.\n- Enjoys quiet activities like reading and walking in nature.\n- Values kindness and trust in relationships.",
+      "thoughts": "- Checking in on a few villagers to make sure they’re doing well.\n- Thinking about encouraging healthier routines in the community.\n- Planning a quiet evening walk to relax after work."
     }
   ]
 }

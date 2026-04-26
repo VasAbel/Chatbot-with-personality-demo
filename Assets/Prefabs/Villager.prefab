@@ -14,9 +14,11 @@ GameObject:
   - component: {fileID: -8782407678852939042}
   - component: {fileID: 4899496348010752953}
   - component: {fileID: -3129879752779511871}
+  - component: {fileID: -7019128042506549103}
+  - component: {fileID: 2392652831931281516}
   m_Layer: 0
   m_Name: Villager
-  m_TagString: Untagged
+  m_TagString: NPC_Object
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -52,11 +54,11 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.06, y: 0.06, z: 0.06}
+  m_Size: {x: 0.1, y: 0.06, z: 0.1}
   m_Center: {x: 0, y: 0.01, z: -0.01}
 --- !u!114 &8410381264206735192
 MonoBehaviour:
@@ -118,8 +120,59 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bubblePrefab: {fileID: 8052261392479977921, guid: a9b4eaf28fe71e543b106a44a2c6f7dd, type: 3}
-  offset: {x: 0, y: 0.2, z: 0}
+  verticalOffset: {x: 0, y: 0.2, z: 0}
   defaultLifetime: 3
+  neighborRadius: 3
+  sideOffsetAmount: 3
+--- !u!195 &-7019128042506549103
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779952185626617607}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.03
+  m_Speed: 2
+  m_Acceleration: 6
+  avoidancePriority: 50
+  m_AngularSpeed: 720
+  m_StoppingDistance: 0.01
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 0.05
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!54 &2392652831931281516
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779952185626617607}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 80
+  m_CollisionDetection: 0
 --- !u!1001 &2480161222923675932
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -138,7 +191,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 0.02
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalPosition.z
@@ -146,19 +199,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.657455
+      value: 0.7071068
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.26029393
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.6574551
+      value: 0.7071068
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.26029387
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -170,7 +223,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8981461415392174964, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: -43.198
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 3525171844003772206, guid: 8d188cacbb5e5804b9cd442f8b710808, type: 3}

@@ -336,7 +336,10 @@ public class ConsoleChatbot : MonoBehaviour
 
     private async Task UpdateMemoryForSession(ConversationSession session)
     {
-        var npc1 = ((NPCConversationSession)session).GetNPC(0);
+        await conversationSemaphore.WaitAsync();
+        try
+        {
+            var npc1 = ((NPCConversationSession)session).GetNPC(0);
         var npc2 = ((NPCConversationSession)session).GetNPC(1);
 
         string fullConversation = string.Join("\n", session.GetMessageHistory());
@@ -509,6 +512,16 @@ Return ONLY the JSON object.";
 
         npc1.LogMemoryToFile();
         npc2.LogMemoryToFile();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Memory update failed: {ex.Message}");
+        }
+        finally
+        {
+            conversationSemaphore.Release();
+        }
+        
     }
 
     private static bool KnowsPartner(NPC self, NPC partner)
