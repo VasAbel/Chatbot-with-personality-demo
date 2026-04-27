@@ -69,10 +69,8 @@ public class VouchDetector : MonoBehaviour
         string system =
             "You are a classifier for a village simulation game. " +
             "Decide whether the following rumor constitutes a positive endorsement " +
-            "of a stranger (the player character) by a villager — i.e. the villager " +
-            "is vouching for the stranger's trustworthiness, good character, or that " +
-            "they should be allowed somewhere or helped. " +
-            "Reply with exactly one word: YES or NO.";
+            "of a stranger by a villager. " +
+            "Reply with a json object like this: {\"result\": \"YES\"} or {\"result\": \"NO\"}";
 
         string user =
             $"Rumor heard by the guard from {rumor.heardFrom}:\n" +
@@ -82,9 +80,10 @@ public class VouchDetector : MonoBehaviour
         try
         {
             string result = await _gpt.RequestGenericJsonAsync(system, user,
-                                                               fallbackJson: "NO",
-                                                               maxTokens: 5);
-            result = result.Trim().Trim('"').ToUpperInvariant();
+                                                               fallbackJson: "{\"result\": \"NO\"}",
+                                                               maxTokens: 20);
+            // Parse the json result
+            result = result.Contains("YES") ? "YES" : "NO";
 
             if (result.StartsWith("YES"))
             {

@@ -257,7 +257,12 @@ public class ConsoleChatbot : MonoBehaviour
                 {
                     session.UpdateMessageHistory(userInput);
 
-                    string rawResponse = await client.SendChatMessageAsync(userInput);
+                    // For guard conversations, append the trust delta reminder to each user message
+                    string messageToSend = userInput;
+                    if (session is GuardConversationSession)
+                        messageToSend += "\n[Remember: end your reply with [TRUST_DELTA: N]]";
+
+                    string rawResponse = await client.SendChatMessageAsync(messageToSend);
 
                     // ▶ Strip [TRUST_DELTA] tag before displaying and logging.
                     string response = ParseAndApplyTrustDelta(rawResponse, talkingTo);
@@ -1066,6 +1071,7 @@ Return ONLY the JSON object.";
 
     private string ParseAndApplyTrustDelta(string response, NPC talkingTo)
     {
+        Debug.Log($"[TrustDebug] rawResponse: {response}");
         GuardState guardState = talkingTo != null
             ? talkingTo.GetComponent<GuardState>()
             : null;
