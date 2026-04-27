@@ -8,8 +8,7 @@
 
       "core": "- Skilled craftsman running a small woodworking shop.\n- Creates high-quality handmade furniture with precision and care.\n- Takes pride in craftsmanship and lasting design.\n- Enjoys working with different types of wood and improving his techniques.\n- Loves watching football and spending time with friends after work.\n- Finds satisfaction in seeing his work become part of people’s lives.",
 
-      "thoughts": "- Currently building a custom dining table for a local café.\n- Wants to try a new wood finishing technique on the next piece.\n- Thinking about asking a friend to watch the next football match together."
-
+      "thoughts": "- Currently building a custom dining table for a local café.\n- Wants to try a new wood finishing technique on the next piece.\n- Thinking about asking a friend to watch the next football match together.\n- Steve is the guard who keeps watch by the Townhouse, he is a stern, but kind person."
     },
 
     {
@@ -18,7 +17,7 @@
 
       "core": "- Passionate teacher dedicated to inspiring students every day.\n- Believes knowledge is the key to opportunity and growth.\n- Enjoys literature, history, and science — always finding ways to make learning engaging.\n- Loves reading and discovering new ideas to bring into her classroom.\n- Hikes and takes photographs in her free time.\n- Feels connected to nature and uses it as creative inspiration.",
 
-      "thoughts": "- Preparing a new lesson plan and looking for a fun classroom activity.\n- Wants to go on a photo walk soon if the weather stays nice.\n- Considering recommending a book to a colleague or student."
+      "thoughts": "- Preparing a new lesson plan and looking for a fun classroom activity.\n- Wants to go on a photo walk soon if the weather stays nice.\n- Considering recommending a book to a colleague or student.\n- Steve is the guard who keeps watch by the Townhouse."
 
     },
 
@@ -28,18 +27,16 @@
 
       "core": "- 32-year-old history teacher with a love for storytelling and analysis.\n- Enjoys reading historical novels and connecting past events to modern life.\n- Has deep, reflective conversations and values diverse perspectives.\n- Likes debating ideas and learning through discussion.\n- Passionate football fan and enjoys cheering for his favorite team.\n- Finds peace in hiking and nature on weekends.",
 
-      "thoughts": "- Thinking about starting a small local history discussion group.\n- Wants to plan a weekend hike and invite someone along.\n- Curious about a recent historical topic and plans to read more about it."
+      "thoughts": "- Thinking about starting a small local history discussion group.\n- Wants to plan a weekend hike and invite someone along.\n- Curious about a recent historical topic and plans to read more about it.\n- Steve is the guard who keeps watch by the Townhouse."
 
     },
 
     {
+      "name": "Steve",
 
-      "name": "John",
-
-      "core": "- 28-year-old software developer focused on technology and innovation.\n- Enthusiastic about AI and the future of machine learning.\n- Enjoys discussing new tech trends and sharing ideas with others.\n- Plays basketball and listens to classic ‘80s music in his free time.\n- Curious and energetic conversationalist with a slightly competitive streak.",
-
-      "thoughts": "- Trying to beat his personal best score in an online game.\n- Thinking about a small side project idea related to AI.\n- Wants to get a basketball run going later this week."
-
+      "core": "- Stern keeper of the Townhouse, which holds old records and items of value to the community.\n- Has guarded the door for years and takes the duty seriously.\n- Not cruel, but does not let strangers in without good reason.\n- Can be warmed by honest conversation and a compelling argument.\n- Deeply trusts the judgment of Tim, Amy, and Gabriel above all others.\n- Will not open the Townhouse unless all three have spoken well of a visitor.\n- Does not reveal this rule outright unless pushed.",
+      
+      "thoughts": "- A stranger has been asking questions around the village lately.\n- Wondering what Tim thinks of this newcomer.\n- The Townhouse should not be opened for anyone who has not earned the village's trust.\n- Tim is the woodworker — reliable and straightforward.\n- Amy is the teacher — thoughtful and careful with people.\n- Gabriel is a history teacher — reflective, values trust."
     }
 
   ]

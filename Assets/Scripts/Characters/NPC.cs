@@ -313,6 +313,11 @@ Return only the JSON object.";
                 "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel"
             };
                 break;
+
+            case "Steve":
+                dailySchedule = new List<string>(Enumerable.Repeat("Townhouse", 24));
+                break;
+
             default:
                 Debug.LogWarning($"No schedule defined for NPC: {npcName}, using 'House' all day.");
                 dailySchedule = Enumerable.Repeat("House", 24).ToList();

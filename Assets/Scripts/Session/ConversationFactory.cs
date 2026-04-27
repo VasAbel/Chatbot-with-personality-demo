@@ -99,19 +99,30 @@ public class ConversationFactory : MonoBehaviour
 
     private void TryStartUserConversation(TMP_InputField dialogueBox, GameObject responseBox)
     {
-        if (npcToUser != null)
+        if (npcToUser == null)
         {
-            Debug.Log($"Starting user conversation with {npcToUser.getName()}");
+            Debug.LogWarning("No NPC assigned for user conversation.");
+            return;
+        }
 
-            ConversationSession newSession = new UserConversationSession(npcToUser);
-            chatbotManager.userInputField = dialogueBox;
-            chatbotManager.messageInputField = responseBox;
-            chatbotManager.StartChatSession(newSession);
+        Debug.Log($"Starting user conversation with {npcToUser.getName()}");
+
+        GuardState guardState = npcToUser.GetComponent<GuardState>();
+        ConversationSession newSession;
+
+        if (guardState != null)
+        {
+            newSession = new GuardConversationSession(npcToUser, guardState);
+            Debug.Log("[ConversationFactory] Using GuardConversationSession.");
         }
         else
         {
-            Debug.LogWarning("No NPC assigned for user conversation with this key.");
+            newSession = new UserConversationSession(npcToUser);
         }
+
+        chatbotManager.userInputField = dialogueBox;
+        chatbotManager.messageInputField = responseBox;
+        chatbotManager.StartChatSession(newSession);
     }
 
     public NPC GetNpcToUser()

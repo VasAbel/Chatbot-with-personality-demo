@@ -1,14 +1,12 @@
-using UnityEngine;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using System.Threading;
-using System.IO;
-using UnityEngine.UI;
-using TMPro;
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Unity.VisualScripting;
+using System.Threading;
+using System.Threading.Tasks;
+using TMPro;
+using UnityEngine;
 
 public class ConsoleChatbot : MonoBehaviour
 {
@@ -240,7 +238,7 @@ public class ConsoleChatbot : MonoBehaviour
             else
             {
                 // Get the NPC reference BEFORE waiting for input
-                NPC talkingTo = ((UserConversationSession)session).GetNPC();
+                NPC talkingTo = session is GuardConversationSession guardSess ? guardSess.GetNPC() : ((UserConversationSession)session).GetNPC();
 
                 Debug.Log("[Debug] Entering user input branch");
                 Debug.Log("User's turn. Please type a message:");
@@ -259,7 +257,11 @@ public class ConsoleChatbot : MonoBehaviour
                 {
                     session.UpdateMessageHistory(userInput);
 
-                    string response = await client.SendChatMessageAsync(userInput);
+                    string rawResponse = await client.SendChatMessageAsync(userInput);
+
+                    // ▶ Strip [TRUST_DELTA] tag before displaying and logging.
+                    string response = ParseAndApplyTrustDelta(rawResponse, talkingTo);
+
                     messageInputField.gameObject.SetActive(true);
                     messageInputField.GetComponentInChildren<TMP_Text>().SetText(response);
 
@@ -1060,6 +1062,39 @@ Return ONLY the JSON object.";
         if (playerMessage.Trim().Length < 20) return; // ignore short/junk messages
 
         RumorManager.Instance.PlantRumor(playerMessage, targetNpc);
+    }
+
+    private string ParseAndApplyTrustDelta(string response, NPC talkingTo)
+    {
+        GuardState guardState = talkingTo != null
+            ? talkingTo.GetComponent<GuardState>()
+            : null;
+
+        if (guardState == null) return response;
+
+        // Match [TRUST_DELTA: N] or [TRUST_DELTA:N] with optional sign.
+        var match = System.Text.RegularExpressions.Regex.Match(
+            response,
+            @"\[TRUST_DELTA:\s*([+-]?\d+)\]",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
+
+        if (!match.Success) return response;
+
+        if (float.TryParse(match.Groups[1].Value,
+                           System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture,
+                           out float delta))
+        {
+            guardState.ApplyTrustDelta(delta);
+        }
+
+        // Remove the tag (and any trailing whitespace/newline before it).
+        string cleaned = response
+            .Substring(0, match.Index)
+            .TrimEnd();
+
+        return cleaned;
     }
 
     private void OnApplicationQuit()
