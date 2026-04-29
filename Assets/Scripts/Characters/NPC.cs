@@ -80,12 +80,14 @@ public class NPC : MonoBehaviour
 
     async void Start()
     {
-        bool ok = await TryGenerateScheduleFromLLM();
-
-        if (!ok || dailySchedule == null || dailySchedule.Count != 24)
+        bool usedDefault = ApplyDefaultSchedule();
+        if (!usedDefault)
         {
-            Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
-            ApplyDefaultSchedule();
+            bool ok = await TryGenerateScheduleFromLLM();
+            if (!ok || dailySchedule == null || dailySchedule.Count != 24)
+            {
+                Debug.LogWarning($"[{npcName}] Schedule generation failed, no fallback available.");
+            }
         }
 
         NPCGlobalTimer timer = FindObjectOfType<NPCGlobalTimer>();
@@ -93,7 +95,6 @@ public class NPC : MonoBehaviour
         {
             timer.RegisterNPC(this);
         }
-
         LogMemoryToFile();
     }
 
@@ -274,7 +275,7 @@ Return only the JSON object.";
     }
 
 
-    private void ApplyDefaultSchedule()
+    private bool ApplyDefaultSchedule()
     {
         switch (npcName)
         {
@@ -284,23 +285,23 @@ Return only the JSON object.";
                 "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
                 "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
                 "School", "School", "School", "School",
-                "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy",
+                "Townhouse", "Townhouse", "Townhouse", "Townhouse",
                 "HouseOfAmy", "Well", "HouseOfAmy", "HouseOfAmy",
                 "HouseOfAmy", "HouseOfAmy", "HouseOfAmy", "HouseOfAmy"
              };
-                break;
+                return true;
 
             case "Tim":
                 dailySchedule = new List<string>
             {
                 "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
-                "HouseOfTim", "HouseOfTim", "HouseOfTim", "WoodworkingShop",
+                "HouseOfTim", "Townhouse", "Townhouse", "WoodworkingShop",
                 "WoodworkingShop", "WoodworkingShop", "WoodworkingShop", "WoodworkingShop",
                 "Well", "Well", "WoodworkingShop", "WoodworkingShop",
-                "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim",
-                "HouseOfTim", "HouseOfTim", "HouseOfTim", "HouseOfTim"
+                "HouseOfTim", "HouseOfTim", "Townhouse", "Townhouse",
+                "Townhouse", "HouseOfTim", "HouseOfTim", "HouseOfTim"
             };
-                break;
+                return true;
                 
             case "Gabriel":
                 dailySchedule = new List<string>
@@ -312,16 +313,16 @@ Return only the JSON object.";
                 "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel",
                 "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel", "HouseOfGabriel"
             };
-                break;
+                return true;
 
             case "Steve":
                 dailySchedule = new List<string>(Enumerable.Repeat("Townhouse", 24));
-                break;
+                return true;
 
             default:
                 Debug.LogWarning($"No schedule defined for NPC: {npcName}, using 'House' all day.");
                 dailySchedule = Enumerable.Repeat("House", 24).ToList();
-                break;
+                return false;
         }
     }
 

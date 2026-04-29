@@ -85,7 +85,6 @@ public class GuardConversationSession : ConversationSession
     {
         bool allVouched = _guardState.requiredVouchers
                                      .All(n => _guardState.HasVouch(n));
-
         string stance = _guardState.IsDoorUnlocked
             ? "\n\nThe door is now open. You have stepped aside and allow the stranger to pass."
             : allVouched
@@ -94,11 +93,15 @@ public class GuardConversationSession : ConversationSession
                 : "\n\nYou will not open the Townhouse until you have heard good word " +
                   "from ALL of the village's trusted residents: Tim, Amy, and Gabriel. " +
                   "You can be warmed by honest conversation, but you will not be tricked.";
-
         return @"
 MANDATORY — append this tag at the end of EVERY reply, no exceptions:
 [TRUST_DELTA: N]
-N is an integer from -10 to +10. Positive = stranger earned trust. Negative = raised suspicion. Zero = neutral small talk.
+N is an integer from -10 to +10. Use these guidelines:
+- Friendly small talk, warmth, curiosity about the village: +1 or +2
+- Player shows genuine respect for the village or its people: +3 to +5
+- Player mentions Tim, Amy, or Gabriel positively: +3
+- Player is evasive, pushy, or asks to enter without earning trust: -2 to -5
+- Neutral or unclear: 0
 The tag must be the very last line. Never skip it." + stance;
     }
 }

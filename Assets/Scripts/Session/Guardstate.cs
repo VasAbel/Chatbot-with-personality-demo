@@ -22,7 +22,15 @@ public class GuardState : MonoBehaviour
 
     private readonly HashSet<string> _vouches = new HashSet<string>();
 
- 
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.CapsLock))
+        {
+            ApplyTrustDelta(20f);
+            Debug.Log("[DEBUG] Added 20 trust to Steve");
+        }
+    }
+
     // Called by ConsoleChatbot after each player-Guard exchange,
     public void ApplyTrustDelta(float delta)
     {
@@ -53,7 +61,7 @@ public class GuardState : MonoBehaviour
         bool allVouched = requiredVouchers.TrueForAll(n => _vouches.Contains(n));
         bool trustOk = TrustLevel >= unlockedByVouchThreshold;
 
-        if (allVouched && trustOk)
+        if (allVouched || trustOk)
             Unlock();
     }
 
