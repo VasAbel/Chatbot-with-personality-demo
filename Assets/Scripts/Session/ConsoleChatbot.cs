@@ -27,6 +27,8 @@ public class ConsoleChatbot : MonoBehaviour
     // counts conversations per pair, e.g. "Amy<->Gabriel" => 5
     private readonly Dictionary<string, int> _pairConversationCounts = new Dictionary<string, int>();
 
+    private Dictionary<string, float> villagerTrust = new Dictionary<string, float>();
+
     private string GetPairKey(string a, string b)
     {
         // stable ordering so a<->b equals b<->a
@@ -259,7 +261,6 @@ public class ConsoleChatbot : MonoBehaviour
 
                     // For guard conversations, append the trust delta reminder to each user message
                     string messageToSend = userInput;
-                    if (session is GuardConversationSession)
                         messageToSend += "\n[Remember: end your reply with [TRUST_DELTA: N]]";
 
                     string rawResponse = await client.SendChatMessageAsync(messageToSend);
@@ -341,7 +342,6 @@ public class ConsoleChatbot : MonoBehaviour
         {
             session.CancellationTokenSource.Cancel();
             session.IsActive = false;
-
             Debug.Log($"Conversation {conversationID} was stopped.");
             activeConversations.Remove(conversationID);
 
@@ -349,13 +349,19 @@ public class ConsoleChatbot : MonoBehaviour
             {
                 _ = UpdateMemoryAndRumorsForSession(session);
             }
+            else if (session is UserConversationSession userSess)
+            {
+                NPC npc = userSess.GetNPC();
+                string fullConvo = string.Join("\n", session.GetMessageHistory());
+                _ = UpdateMemoryForSession(session);
+                _ = NpcPlanGenerator.TryGeneratePlan(npc, fullConvo, client);
+            }
 
             return true;
         }
 
         return false;
     }
-
     private static string SanitizeJson(string raw)
     {
         if (string.IsNullOrEmpty(raw)) return "{}";
@@ -1045,14 +1051,15 @@ Return ONLY the JSON object.";
 
             string fullConversation = string.Join("\n", session.GetMessageHistory());
 
-            // Exchange rumors between them
             await RumorManager.Instance.ExchangeRumors(npc1, npc2);
-
-            // Each NPC might generate a new organic rumor from what was discussed
             await RumorManager.Instance.TryGenerateRumorFromConversation(npc1, fullConversation);
             await RumorManager.Instance.TryGenerateRumorFromConversation(npc2, fullConversation);
 
             Debug.Log($"[Rumors] Exchange done after {npc1.getName()} <-> {npc2.getName()} conversation.");
+
+            // Both NPCs evaluate whether to form a plan based on what was discussed
+            _ = NpcPlanGenerator.TryGeneratePlan(npc1, fullConversation, client);
+            _ = NpcPlanGenerator.TryGeneratePlan(npc2, fullConversation, client);
         }
     }
 
@@ -1072,13 +1079,7 @@ Return ONLY the JSON object.";
     private string ParseAndApplyTrustDelta(string response, NPC talkingTo)
     {
         Debug.Log($"[TrustDebug] rawResponse: {response}");
-        GuardState guardState = talkingTo != null
-            ? talkingTo.GetComponent<GuardState>()
-            : null;
 
-        if (guardState == null) return response;
-
-        // Match [TRUST_DELTA: N] or [TRUST_DELTA:N] with optional sign.
         var match = System.Text.RegularExpressions.Regex.Match(
             response,
             @"\[TRUST_DELTA:\s*([+-]?\d+)\]",
@@ -1092,10 +1093,23 @@ Return ONLY the JSON object.";
                            System.Globalization.CultureInfo.InvariantCulture,
                            out float delta))
         {
-            guardState.ApplyTrustDelta(delta);
+            GuardState guardState = talkingTo != null
+                ? talkingTo.GetComponent<GuardState>()
+                : null;
+
+            if (guardState != null)
+            {
+                guardState.ApplyTrustDelta(delta);
+            }
+            else if (talkingTo != null)
+            {
+                string name = talkingTo.getName();
+                if (!villagerTrust.ContainsKey(name)) villagerTrust[name] = 0f;
+                villagerTrust[name] = Mathf.Clamp(villagerTrust[name] + delta, 0f, 100f);
+                Debug.Log($"[VillagerTrust] {name} → {villagerTrust[name]} (delta {delta:+0;-0})");
+            }
         }
 
-        // Remove the tag (and any trailing whitespace/newline before it).
         string cleaned = response
             .Substring(0, match.Index)
             .TrimEnd();

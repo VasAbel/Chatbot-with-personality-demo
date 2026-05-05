@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class GuardState : MonoBehaviour
@@ -28,6 +29,11 @@ public class GuardState : MonoBehaviour
         {
             ApplyTrustDelta(20f);
             Debug.Log("[DEBUG] Added 20 trust to Steve");
+        }
+        if (Input.GetKeyDown(KeyCode.P))
+        {
+            NPC amy = FindObjectsOfType<NPC>().FirstOrDefault(n => n.getName() == "Amy");
+            if (amy != null) amy.SetPlan("Townhouse", "DEBUG: testing plan system");
         }
     }
 

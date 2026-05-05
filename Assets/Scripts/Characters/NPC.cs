@@ -17,6 +17,9 @@ public class NPC : MonoBehaviour
     internal ConfigManager.Description desc;
     public List<string> dailySchedule = new List<string>();
     public NpcMemory memory = new NpcMemory();
+    public string pendingPlanLocation = null;  
+    public string pendingPlanReason = null;   
+
 
     public void Awake()
     {
@@ -26,6 +29,19 @@ public class NPC : MonoBehaviour
         memory.currentThoughts.Clear();
         foreach (var t in ParseInitialThoughts(desc.thoughts))
             memory.currentThoughts.Add(t);
+    }
+
+    public void SetPlan(string location, string reason)
+    {
+        pendingPlanLocation = location;
+        pendingPlanReason = reason;
+        Debug.Log($"[Plan] {npcName} has a new plan: go to {location} ({reason})");
+    }
+
+    public void ClearPlan()
+    {
+        pendingPlanLocation = null;
+        pendingPlanReason = null;
     }
 
     private IEnumerable<Thought> ParseInitialThoughts(string thoughtsBlock)
@@ -341,12 +357,11 @@ Return only the JSON object.";
             return;
         }
 
-        // Only regenerate schedule at midnight (hour 0) to reduce LLM calls
-        if(hour == 0 && dailySchedule.Count > 0)
+        if (hour == 0 && dailySchedule.Count > 0)
         {
             Debug.Log($"[{npcName}] Using cached schedule from yesterday.");
         }
-        else if (dailySchedule.Count == 0) // First time initialization
+        else if (dailySchedule.Count == 0)
         {
             bool ok = await TryGenerateScheduleFromLLM();
             if (!ok || dailySchedule == null || dailySchedule.Count != 24)
@@ -356,9 +371,17 @@ Return only the JSON object.";
             }
         }
 
+        // ── Plan override ──
+        if (!string.IsNullOrWhiteSpace(pendingPlanLocation))
+        {
+            Debug.Log($"[Plan] {npcName} executing plan: heading to {pendingPlanLocation} ({pendingPlanReason})");
+            gameObject.GetComponent<NpcMovement>().MoveTo(pendingPlanLocation);
+            ClearPlan();
+            return;
+        }
+
         string placeToGo = dailySchedule[hour % dailySchedule.Count];
         Debug.Log($"[Chronology] {getName()} | now: {GetCurrentGameTimestamp()} | heading to: {placeToGo}");
-
         gameObject.GetComponent<NpcMovement>().MoveTo(placeToGo);
     }
 

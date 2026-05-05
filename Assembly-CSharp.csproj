@@ -87,6 +87,7 @@
     <Compile Include="Assets\Scripts\Config\SecretManager.cs" />
     <Compile Include="Assets\Scripts\Characters\PlayerMovement.cs" />
     <Compile Include="Assets\Scripts\Characters\Movement.cs" />
+    <Compile Include="Assets\Scripts\Session\NpcPlanGenerator.cs" />
     <Compile Include="Assets\Scripts\LLM\LlamaClient.cs" />
   </ItemGroup>
   <ItemGroup>
