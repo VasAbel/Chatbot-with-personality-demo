@@ -54,6 +54,14 @@ public class NPCConversationSession : ConversationSession
         }
     }
 
+    public void AddSpokenLine(NPC speaker, string message)
+    {
+        if (speaker == null || string.IsNullOrWhiteSpace(message))
+            return;
+
+        spokenTranscript.Add($"{speaker.getName()}: {message.Trim()}");
+    }
+
     private string BuildSituationFor(NPC speaker)
     {
         bool isNpc1 = speaker == npc1;

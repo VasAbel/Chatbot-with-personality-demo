@@ -12,7 +12,7 @@ public class NPC : MonoBehaviour
     public int idx;
 
     private string npcName;
-    public bool isInConversation = false;
+    public bool isConversationBlocked = false;
     public bool isTalkingToUser = false;
     internal ConfigManager.Description desc;
     public List<string> dailySchedule = new List<string>();
@@ -318,7 +318,7 @@ Return only the JSON object.";
 
     public async void OnHourPassed(int hour)
     {
-        if (isInConversation && isTalkingToUser)
+        if (isConversationBlocked && isTalkingToUser)
         {
             Debug.Log($"{getName()} is talking to the player. Skipping move this hour.");
             return;

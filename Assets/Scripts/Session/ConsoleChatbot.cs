@@ -204,6 +204,11 @@ public class ConsoleChatbot : MonoBehaviour
                     
                     currentSpeaker.GetComponent<ChatBubbleAnchor>()?.Show(logEntry);
 
+                    if (session is NPCConversationSession npcSession)
+                    {
+                        npcSession.AddSpokenLine(currentSpeaker, response);
+                    }
+
                     session.UpdateMessageHistory(initialPrompt);
                     initialPrompt = response;
                 }
@@ -300,15 +305,63 @@ public class ConsoleChatbot : MonoBehaviour
             Debug.Log($"Conversation {conversationID} was stopped.");
             activeConversations.Remove(conversationID);
 
-            if (!conversationID.StartsWith("User-"))
+            if (session is NPCConversationSession npcSession)
             {
-                _ = UpdateMemoryForSession(session);
+                _ = UpdateMemoryThenRelease(npcSession);
             }
 
             return true;
         }
 
         return false;
+    }
+
+    private async Task UpdateMemoryThenRelease(NPCConversationSession session)
+    {
+        NPC npc1 = session.GetNPC(0);
+        NPC npc2 = session.GetNPC(1);
+
+        try
+        {
+            if (ShouldSkipMemoryUpdate(session))
+            {
+                Debug.LogWarning(
+                    $"[MEMORY-SKIP] Skipping memory update for {session.conversationID}: " +
+                    $"conversation transcript is empty or too short."
+                );
+
+                return;
+            }
+            await UpdateMemoryForSession(session);
+        }
+        finally
+        {
+            npc1.isConversationBlocked = false;
+            npc2.isConversationBlocked = false;
+
+            Debug.Log($"Released {npc1.getName()} and {npc2.getName()} after memory update.");
+        }
+    }
+
+    private bool ShouldSkipMemoryUpdate(NPCConversationSession session)
+    {
+        if (session == null)
+            return true;
+
+        var transcript = session.GetSpokenTranscript();
+
+        if (transcript == null || transcript.Count == 0)
+            return true;
+
+        // If only one NPC managed to say one line, it may not be worth updating memory.
+        // You can lower this to < 1 if you want to remember one-sided greetings too.
+        if (transcript.Count < 2)
+            return true;
+
+        // Extra safety: all lines are empty/whitespace somehow
+        bool hasRealContent = transcript.Any(line => !string.IsNullOrWhiteSpace(line));
+
+        return !hasRealContent;
     }
 
     private static string SanitizeJson(string raw)
@@ -342,7 +395,8 @@ public class ConsoleChatbot : MonoBehaviour
             var npc1 = ((NPCConversationSession)session).GetNPC(0);
         var npc2 = ((NPCConversationSession)session).GetNPC(1);
 
-        string fullConversation = string.Join("\n", session.GetMessageHistory());
+        var npcSession = (NPCConversationSession)session;
+        string fullConversation = string.Join("\n", npcSession.GetSpokenTranscript());
 
         string baseInstr = @"
 You are a memory updater for a role-playing simulation.

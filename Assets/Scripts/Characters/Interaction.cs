@@ -97,12 +97,12 @@ public class Interaction : MonoBehaviour
                 npcMovement.canMove = true;
                 interactionText.SetActive(isPlayerNearby);
 
-                npcComponent.isInConversation = false;
+                npcComponent.isConversationBlocked = false;
                 npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
             }
         }
-        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation)
+        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isConversationBlocked)
         {
             dialogueBox.gameObject.SetActive(true);
             responseBox.SetActive(true);
@@ -110,7 +110,7 @@ public class Interaction : MonoBehaviour
             npcMovement.canMove = false;
             interactionText.SetActive(false);
 
-            npcComponent.isInConversation = true;
+            npcComponent.isConversationBlocked = true;
             npcComponent.isTalkingToUser = true;
             factory.RegisterUserNPC(npcComponent, dialogueBox, responseBox);
         }
@@ -127,11 +127,11 @@ public class Interaction : MonoBehaviour
         {
             NPC otherNPCComponent = other.gameObject.GetComponent<NPC>();
 
-            if (npcComponent.isInConversation || otherNPCComponent.isInConversation)
+            if (npcComponent.isConversationBlocked || otherNPCComponent.isConversationBlocked)
                 return;
 
-            npcComponent.isInConversation = true;
-            otherNPCComponent.isInConversation = true;
+            npcComponent.isConversationBlocked = true;
+            otherNPCComponent.isConversationBlocked = true;
 
             NpcMovement otherNpcMovement = other.gameObject.GetComponent<NpcMovement>();
             npcMovement.canMove = false;
@@ -175,10 +175,7 @@ public class Interaction : MonoBehaviour
 
             if (stopped)
             {
-                npcComponent.isInConversation = false;
                 npcMovement.canMove = true;
-
-                otherNPCComponent.isInConversation = false;
                 otherNPCComponent.GetComponent<NpcMovement>().canMove = true;
             }
         }

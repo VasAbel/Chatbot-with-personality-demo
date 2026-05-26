@@ -9,6 +9,12 @@ public abstract class ConversationSession
     public bool IsActive { get; set; } = true;
     public string conversationID { get; protected set; }
     public CancellationTokenSource CancellationTokenSource { get; private set; } = new CancellationTokenSource();
+    protected List<string> spokenTranscript = new List<string>();
+
+    public List<string> GetSpokenTranscript()
+    {
+        return spokenTranscript;
+    }
 
     public abstract NPC GetCurrentSpeaker(); // NPC talking this turn
     public abstract void UpdateMessageHistory(string message);
