@@ -86,6 +86,8 @@ public class NPC : MonoBehaviour
         {
             Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
             ApplyDefaultSchedule();
+
+            MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
         }
 
         NPCGlobalTimer timer = FindObjectOfType<NPCGlobalTimer>();
@@ -268,7 +270,9 @@ Return only the JSON object.";
         }
 
         dailySchedule = hours;
-        Debug.Log($"[{npcName}] LLM schedule normalized to exactly 24 valid entries.");
+
+        MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
+        //Debug.Log($"[{npcName}] LLM schedule normalized to exactly 24 valid entries.");
         return true;
 
     }
@@ -336,6 +340,8 @@ Return only the JSON object.";
             {
                 Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
                 ApplyDefaultSchedule();
+
+                MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
             }
         }
 

@@ -192,7 +192,16 @@ public class ConsoleChatbot : MonoBehaviour
                     
                     string raw = await client.SendChatMessageAsync(initialPrompt);
 
-                    string response = StripSpeakerPrefix(raw, currentSpeaker.name);
+                    string response = StripSpeakerPrefix(raw, currentSpeaker.getName());
+
+                    if (session is NPCConversationSession mentionSession)
+                    {
+                        NPC npcA = mentionSession.GetNPC(0);
+                        NPC npcB = mentionSession.GetNPC(1);
+                        NPC listener = currentSpeaker == npcA ? npcB : npcA;
+
+                        LogThirdNpcMentions(currentSpeaker, listener, response, session.conversationID);
+                    }
 
                     if (session.CancellationTokenSource.Token.IsCancellationRequested)
                         break;
@@ -321,10 +330,14 @@ public class ConsoleChatbot : MonoBehaviour
         NPC npc1 = session.GetNPC(0);
         NPC npc2 = session.GetNPC(1);
 
+        bool skipped = false;
+
         try
         {
             if (ShouldSkipMemoryUpdate(session))
             {
+                skipped = true;
+
                 Debug.LogWarning(
                     $"[MEMORY-SKIP] Skipping memory update for {session.conversationID}: " +
                     $"conversation transcript is empty or too short."
@@ -336,6 +349,14 @@ public class ConsoleChatbot : MonoBehaviour
         }
         finally
         {
+            MeasurementLogger.Instance?.LogConversationFinished(
+                npc1,
+                npc2,
+                session.conversationID,
+                session.GetSpokenTranscript()?.Count ?? 0,
+                skipped
+            );
+
             npc1.isConversationBlocked = false;
             npc2.isConversationBlocked = false;
 
@@ -394,6 +415,9 @@ public class ConsoleChatbot : MonoBehaviour
         {
             var npc1 = ((NPCConversationSession)session).GetNPC(0);
         var npc2 = ((NPCConversationSession)session).GetNPC(1);
+
+        bool npc1KnewNpc2Before = KnowsPartner(npc1, npc2);
+        bool npc2KnewNpc1Before = KnowsPartner(npc2, npc1);
 
         var npcSession = (NPCConversationSession)session;
         string fullConversation = string.Join("\n", npcSession.GetSpokenTranscript());
@@ -558,8 +582,24 @@ Return ONLY the JSON object.";
         json1 = SanitizeJson(json1);
         json2 = SanitizeJson(json2);
 
+        LogMemoryOperationCountsFromJson(npc1, json1, convId, npc2.getName());
+        LogMemoryOperationCountsFromJson(npc2, json2, convId, npc1.getName());
+
         ApplyMemoryJson(npc1, json1);
         ApplyMemoryJson(npc2, json2);
+
+        bool npc1KnowsNpc2After = KnowsPartner(npc1, npc2);
+        bool npc2KnowsNpc1After = KnowsPartner(npc2, npc1);
+
+        if (!npc1KnewNpc2Before && npc1KnowsNpc2After)
+        {
+            MeasurementLogger.Instance?.LogNewAcquaintance(npc1, npc2, convId);
+        }
+
+        if (!npc2KnewNpc1Before && npc2KnowsNpc1After)
+        {
+            MeasurementLogger.Instance?.LogNewAcquaintance(npc2, npc1, convId);
+        }
 
         LogMemoryDelta(npc1.getName(), npc2.getName(), convId, pairCount, json1, npc1BeforeMem, npc1);
         LogMemoryDelta(npc2.getName(), npc1.getName(), convId, pairCount, json2, npc2BeforeMem, npc2);
@@ -1463,5 +1503,145 @@ Return ONLY the JSON object.";
         activeConversations.Clear();
 
         Debug.Log("Conversations have ended.");
+    }
+
+    private void LogThirdNpcMentions(
+    NPC speaker,
+    NPC listener,
+    string response,
+    string conversationId)
+    {
+        NPC[] allNpcs = FindObjectsOfType<NPC>();
+
+        foreach (var npc in allNpcs)
+        {
+            if (npc == null)
+                continue;
+
+            string mentionedName = npc.getName();
+
+            if (mentionedName == speaker.getName() || mentionedName == listener.getName())
+                continue;
+
+            bool mentioned = Regex.IsMatch(
+                response,
+                $@"\b{Regex.Escape(mentionedName)}\b",
+                RegexOptions.IgnoreCase
+            );
+
+            if (mentioned)
+            {
+                MeasurementLogger.Instance?.LogNpcMention(
+                    speaker,
+                    listener,
+                    mentionedName,
+                    conversationId
+                );
+            }
+        }
+    }
+
+    private void LogMemoryOperationCountsFromJson(
+    NPC npc,
+    string json,
+    string conversationId,
+    string partnerName)
+    {
+        if (npc == null)
+            return;
+
+        MemoryDeltaRoot delta = null;
+        bool parseOk = true;
+
+        try
+        {
+            delta = JsonConvert.DeserializeObject<MemoryDeltaRoot>(json);
+        }
+        catch (Exception ex)
+        {
+            parseOk = false;
+            Debug.LogWarning($"[MEASUREMENT] Could not parse memory-operation counts for {npc.getName()}: {ex.Message}");
+        }
+
+        if (!parseOk || delta == null)
+        {
+            MeasurementLogger.Instance?.LogMemoryOperationCount(
+                npc,
+                conversationId,
+                partnerName,
+                "parse_failed",
+                "",
+                0,
+                0,
+                0,
+                false
+            );
+
+            return;
+        }
+
+        // CORE
+        MeasurementLogger.Instance?.LogMemoryOperationCount(
+            npc,
+            conversationId,
+            partnerName,
+            "core",
+            "",
+            delta.core?.add?.Count ?? 0,
+            delta.core?.update?.Count ?? 0,
+            delta.core?.remove?.Count ?? 0,
+            true
+        );
+
+        // SOCIAL
+        if (delta.social != null && delta.social.Count > 0)
+        {
+            foreach (var kv in delta.social)
+            {
+                string socialTarget = kv.Key;
+                var socialDelta = kv.Value;
+
+                MeasurementLogger.Instance?.LogMemoryOperationCount(
+                    npc,
+                    conversationId,
+                    partnerName,
+                    "social",
+                    socialTarget,
+                    socialDelta?.add?.Count ?? 0,
+                    socialDelta?.update?.Count ?? 0,
+                    socialDelta?.remove?.Count ?? 0,
+                    true
+                );
+            }
+        }
+        else
+        {
+            // Optional: still write a zero row for social,
+            // so every NPC-memory update has core/social/thoughts rows.
+            MeasurementLogger.Instance?.LogMemoryOperationCount(
+                npc,
+                conversationId,
+                partnerName,
+                "social",
+                "",
+                0,
+                0,
+                0,
+                true
+            );
+        }
+
+        // THOUGHTS
+        MeasurementLogger.Instance?.LogMemoryOperationCount(
+            npc,
+            conversationId,
+            partnerName,
+            "thoughts",
+            "",
+            delta.thoughts?.add?.Count ?? 0,
+            delta.thoughts?.update?.Count ?? 0,
+            delta.thoughts?.remove?.Count ?? 0,
+            true
+        );
     }
 }
