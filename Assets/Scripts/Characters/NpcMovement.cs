@@ -30,7 +30,7 @@ public class NpcMovement : Movement
             agent.speed = speed;
             agent.angularSpeed = 720f;
             agent.acceleration = 6f;
-            agent.stoppingDistance = 0.02f;
+            agent.stoppingDistance = 0.3f;
             agent.updateRotation = false;
             agent.updateUpAxis = false;
         }
@@ -42,9 +42,18 @@ public class NpcMovement : Movement
         if (!canMove)
         {
             movement = Vector3.zero;
-            if (agent) agent.isStopped = true;
+            if (agent != null)
+            {
+                agent.isStopped = true;
+                agent.velocity = Vector3.zero;   // kill any residual momentum immediately
+                agent.avoidancePriority = 0;     // absolute top priority â€” nothing can push this NPC
+            }
             return;
         }
+
+        // Restore normal priority when moving
+        if (agent != null && agent.avoidancePriority != 50)
+            agent.avoidancePriority = 50;
 
         // --- Wander mode: pick random NavMesh points, ignore schedule ---
         if (WanderMode)
@@ -148,7 +157,7 @@ public class NpcMovement : Movement
                 return;
             }
         }
-        // All attempts failed — just wait and retry next frame
+        // All attempts failed ï¿½ just wait and retry next frame
         _wanderIdleTimer = 1f;
     }
 
@@ -170,8 +179,15 @@ public class NpcMovement : Movement
 
             if (agent != null)
             {
+                // Small random offset so multiple NPCs heading to the same location
+                // don't all stack on the exact same point and push each other
+                Vector3 offset = new Vector3(
+                    Random.Range(-0.7f, 0.7f),
+                    0f,
+                    Random.Range(-0.7f, 0.7f)
+                );
                 agent.isStopped = false;
-                agent.SetDestination(target.position);
+                agent.SetDestination(target.position + offset);
             }
         }
     }

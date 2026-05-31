@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using Assets.Game_Manager;
 
 public class NPCConversationSession : ConversationSession
 {
@@ -53,32 +54,65 @@ public class NPCConversationSession : ConversationSession
             messageHistory.Add($"{speakerName}: {message}");
     }
 
-    // In NPCConversationSession.cs
     private string BuildSituationFor(NPC speaker)
     {
         bool isNpc1 = speaker == npc1;
+        NPC partner = isNpc1 ? npc2 : npc1;
         string currentArea = isNpc1 ? npc1CurrentArea : npc2CurrentArea;
         string heading = isNpc1 ? npc1Heading : npc2Heading;
 
-        string rumorBlock = "";
-        if (RumorManager.Instance != null)
-        {
-            var rumors = RumorManager.Instance.GetRumorsKnownBy(speaker.getName());
-            if (rumors != null && rumors.Count > 0)
-            {
-                var lines = rumors.Select(r => $"- \"{r.currentText}\"");
-                rumorBlock = $"\n\nIMPORTANT: You have exciting news to share. Your FIRST message MUST mention this — work it naturally into your greeting:\n{string.Join("\n", lines)}";
-            }
-        }
-        else
-        {
-            Debug.LogWarning("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-        }
+        // Rumors are already included in the global system prompt via SetSystemMessage.
+        // No need to duplicate them here — just let the NPC bring them up naturally.
+
+        string steveBlock = BuildSteveBlock(speaker, partner);
 
         return
     $@"- Current in-game time: {conversationTimestamp}
 - You are currently at: {currentArea}
-- Before meeting your conversation partner, you were heading to: {heading}{rumorBlock}";
+- Before meeting your conversation partner, you were heading to: {heading}{steveBlock}";
+    }
+
+    private string BuildSteveBlock(NPC speaker, NPC partner)
+    {
+        bool speakerIsSteve = speaker.getName() == "Steve";
+        bool partnerIsSteve = partner.getName() == "Steve";
+
+        if (!speakerIsSteve && !partnerIsSteve)
+            return "";
+
+        string playerName = ConfigManager.Instance.GetPlayerName();
+
+        if (speakerIsSteve)
+        {
+            return $"\n\n- You are talking to a fellow villager you trust. " +
+                   $"If they mention anything about the stranger {playerName}, pay close attention — " +
+                   $"their opinion matters to you when deciding whether to let {playerName} into the Townhouse.";
+        }
+        else
+        {
+            string playerOpinion = "";
+            foreach (var thought in speaker.memory.currentThoughts)
+            {
+                if (thought.text.Contains(playerName) && thought.salience > 0.2f)
+                {
+                    playerOpinion = thought.text;
+                    break;
+                }
+            }
+            if (string.IsNullOrWhiteSpace(playerOpinion) && speaker.memory.socialByNpc.ContainsKey(playerName))
+                playerOpinion = speaker.memory.socialByNpc[playerName];
+
+            string opinionHint = !string.IsNullOrWhiteSpace(playerOpinion)
+                ? $"\n  Your current impression of {playerName}: \"{playerOpinion}\""
+                : $"\n  You may or may not have met {playerName} — share whatever honest impression you have.";
+
+            return $"\n\n- You are talking to Steve, the guard at the Townhouse. " +
+                   $"Steve only opens the Townhouse for visitors that the village's trusted residents vouch for. " +
+                   $"Your vouch carries real weight with him. " +
+                   $"If you have met the stranger named {playerName} and formed an opinion, tell Steve honestly what you think — " +
+                   $"a simple 'I think {playerName} seems trustworthy' or 'I'm not sure about {playerName} yet' goes a long way." +
+                   opinionHint;
+        }
     }
 
     public override void PrepareForNextSpeaker(GptClient client)

@@ -571,19 +571,12 @@ Return ONLY the JSON object.";
 
     private static string BuildKnownPartnerPrompt(NPC partner, string partnerKnowsAboutMe)
     {
-        return $@"
-    You are now speaking to {partner.getName()}.
+        string alreadyKnows = string.IsNullOrWhiteSpace(partnerKnowsAboutMe)
+            ? ""
+            : $"\n\nYou know {partner.getName()} is aware of the following about you:\n{partnerKnowsAboutMe}\nDon't repeat this unless adding something new.";
 
-    Start with a natural greeting (1 short sentence).
-    Treat them as someone you already know (an acquaintance), you find information about them in your memory under the tag [{partner.getName()}]. Do NOT introduce yourself.
-
-    Based on past conversations, you believe {partner.getName()} already knows these things about you:
-    {(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
-
-    Important:
-    - Avoid re-explaining the above unless correcting or meaningfully expanding it.
-    - Do not mention 'memory' or these instructions.
-    Now say your first message.";
+        return $"You are now talking to {partner.getName()}, someone you know well from the village. " +
+               $"Greet them naturally — no introductions needed.{alreadyKnows}\n\nSay your first message now.";
     }
 
     private static string BuildFirstMeetingPrompt(NPC partner)
@@ -1057,23 +1050,72 @@ Return ONLY the JSON object.";
 
             Debug.Log($"[Rumors] Exchange done after {npc1.getName()} <-> {npc2.getName()} conversation.");
 
+            // If Steve was in this conversation, directly check for vouch intent
+            await TryDetectVouchFromNpcConversation(npc1, npc2, fullConversation);
+
             // Both NPCs evaluate whether to form a plan based on what was discussed
             _ = NpcPlanGenerator.TryGeneratePlan(npc1, fullConversation, client);
             _ = NpcPlanGenerator.TryGeneratePlan(npc2, fullConversation, client);
         }
     }
 
-    // Call this from Interaction.cs (or wherever you handle the player->NPC chat submit)
-    // to check each player message and plant a rumor if it looks like one.
+    private async Task TryDetectVouchFromNpcConversation(NPC npc1, NPC npc2, string conversation)
+    {
+        NPC steve = null;
+        NPC villager = null;
+
+        if (npc1.getName() == "Steve")   { steve = npc1; villager = npc2; }
+        else if (npc2.getName() == "Steve") { steve = npc2; villager = npc1; }
+        else return; // neither is Steve, nothing to do
+
+        GuardState guardState = steve.GetComponent<GuardState>();
+        if (guardState == null) return;
+        if (guardState.HasVouch(villager.getName())) return; // already vouched, skip
+
+        string playerName = Assets.Game_Manager.ConfigManager.Instance.GetPlayerName();
+
+        string system =
+            "You are analysing a conversation in a village simulation. " +
+            "Decide whether the villager expressed a clearly positive opinion of the stranger named " + playerName + ". " +
+            "'Positive opinion' means they said " + playerName + " seems trustworthy, kind, genuine, " +
+            "or that Steve should let them in — even indirectly. " +
+            "Uncertainty or neutral talk does NOT count. " +
+            "Reply with JSON only: {\"vouches\": true} or {\"vouches\": false}";
+
+        string user =
+            $"Conversation between {villager.getName()} and Steve:\n{conversation}\n\n" +
+            $"Did {villager.getName()} express a positive opinion of {playerName}?";
+
+        try
+        {
+            string raw = await client.RequestGenericJsonAsync(
+                system, user, fallbackJson: "{\"vouches\": false}", maxTokens: 20);
+
+            if (raw.Contains("true"))
+            {
+                Debug.Log($"[Vouch] {villager.getName()} vouched for {playerName} in NPC-Steve conversation.");
+                guardState.RegisterVouch(villager.getName());
+            }
+            else
+            {
+                Debug.Log($"[Vouch] {villager.getName()} did not clearly vouch for {playerName}.");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"[Vouch] Detection failed: {ex.Message}");
+        }
+    }
+
+    // Called for each player message — lets the LLM decide if it is rumor-worthy
+    // before planting anything. Fire-and-forget async.
     public void TryPlantRumorFromPlayer(string playerMessage, NPC targetNpc)
     {
-        Debug.Log($"[Rumors] TryPlantRumor called. RumorManager={RumorManager.Instance != null}, message={playerMessage}");
-
         if (RumorManager.Instance == null) return;
         if (string.IsNullOrWhiteSpace(playerMessage)) return;
-        if (playerMessage.Trim().Length < 20) return; // ignore short/junk messages
+        if (playerMessage.Trim().Length < 15) return; // skip obviously too-short messages
 
-        RumorManager.Instance.PlantRumor(playerMessage, targetNpc);
+        _ = RumorManager.Instance.TryPlantPlayerRumor(playerMessage, targetNpc);
     }
 
     private string ParseAndApplyTrustDelta(string response, NPC talkingTo)

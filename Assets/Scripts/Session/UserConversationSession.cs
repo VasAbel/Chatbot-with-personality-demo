@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Assets.Game_Manager;
 
 public class UserConversationSession : ConversationSession
 {
@@ -34,21 +35,43 @@ public class UserConversationSession : ConversationSession
 
     public override void PrepareForNextSpeaker(GptClient client)
     {
+        string playerName = ConfigManager.Instance.GetPlayerName();
+        int exchanges = messageHistory.Count;
+        string vouchGuidance;
+        if (exchanges >= 6)
+        {
+            vouchGuidance =
+                $"- By now you've had enough of a conversation to form a real impression of {playerName}. " +
+                $"If you feel good about them, it's natural to mention that you'd be happy to say so to Steve — " +
+                $"in your own words, once, only if it genuinely fits. If you're uncertain, don't force it.";
+        }
+        else if (exchanges >= 4)
+        {
+            vouchGuidance =
+                $"- You're getting a sense of who {playerName} is. If the conversation has felt honest and warm, " +
+                $"you might naturally warm up and hint that you think well of them.";
+        }
+        else
+        {
+            vouchGuidance =
+                $"- You've only just met {playerName}. Be friendly and curious, but you don't know them yet.";
+        }
+
         string situation =
         $@"- Current in-game time: {timestamp}
-    - You are currently at: {currentArea}
-    - Before meeting the player, you were heading to: {heading}
-    - You are talking to a stranger named Jade who is visiting the village.
-    - At the end of every reply, append a trust tag: [TRUST_DELTA: N] where N is -5 to +5.
-      Use these guidelines:
-      - Friendly, warm, curious questions or compliments: +1 or +2
-      - Player shows genuine interest in you or the village: +2 to +3
-      - Rude, evasive, or suspicious behavior: -1 to -3
-      - Neutral small talk: 0
-    - If your accumulated trust with this player feels high (they have been consistently warm and genuine),
-      naturally say something like 'I would vouch for you with Steve' or 'I'll put in a good word for you'
-      or 'Steve should let you in, you seem trustworthy'. Only do this once and only if it genuinely fits.
-    - The trust tag must be the very last line of every reply. Never skip it.";
+- You are currently at: {currentArea}
+- Before meeting {playerName}, you were heading to: {heading}
+- You are talking to a stranger named {playerName} who is visiting the village.
+- You know Steve is protective of the Townhouse — he's careful about who he lets in, and he values what you and the other villagers think of visitors.
+{vouchGuidance}
+- At the end of every reply, append a trust tag on its own line: [TRUST_DELTA: N] where N is -5 to +5.
+  Guidelines:
+  * Warm, curious, or genuine: +1 to +2
+  * Shows real interest in the village or its people: +2 to +3
+  * Mentions something you care about: +2
+  * Rude, evasive, pushy, or suspicious: -1 to -3
+  * Neutral small talk: 0
+- Never skip the trust tag. It must be the very last line.";
 
         client.SetSystemMessage(messageHistory, npc, npc, situation);
     }

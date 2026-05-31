@@ -15,6 +15,14 @@ public class Interaction : MonoBehaviour
     private NpcMovement npcMovement = null;
     private PlayerMovement playerMovement = null;
 
+    // Prevents re-triggering NPC-NPC conversation immediately after one just ended
+    internal float npcConvCooldown = 0f;
+    private const float NPC_CONV_COOLDOWN = 8f;
+
+    // Prevents accidentally starting a new user conversation right after ending one
+    private static float userConvCooldown = 0f;
+    private const float USER_CONV_COOLDOWN = 1.5f;
+
     void Start()
     {
         GameObject canvas = GameObject.Find("Canvas");
@@ -86,6 +94,10 @@ public class Interaction : MonoBehaviour
 
     void Update()
     {
+        // Tick down cooldowns
+        if (npcConvCooldown > 0f)   npcConvCooldown   -= Time.deltaTime;
+        if (userConvCooldown > 0f)  userConvCooldown  -= Time.deltaTime;
+
         bool isActiveUserSession = factory.GetNpcToUser() == npcComponent;
         if (isActiveUserSession)
         {
@@ -100,12 +112,15 @@ public class Interaction : MonoBehaviour
                 npcComponent.isInConversation = false;
                 npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
-                
+                userConvCooldown = USER_CONV_COOLDOWN; // brief pause before new conversation can start
+
                 // Trigger NPC-NPC conversation after player talks to Amy
                 TriggerPostPlayerConversation();
             }
         }
-        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F) && !npcComponent.isInConversation)
+        else if (isPlayerNearby && Input.GetKeyUp(KeyCode.F)
+                 && !npcComponent.isInConversation
+                 && userConvCooldown <= 0f)          // don't start mid-cooldown
         {
             dialogueBox.gameObject.SetActive(true);
             responseBox.SetActive(true);
@@ -131,6 +146,12 @@ public class Interaction : MonoBehaviour
             NPC otherNPCComponent = other.gameObject.GetComponent<NPC>();
 
             if (npcComponent.isInConversation || otherNPCComponent.isInConversation)
+                return;
+
+            // Cooldown: don't restart a conversation right after one just ended
+            // (prevents physics-push re-triggering the same pair immediately)
+            Interaction otherInteraction = other.gameObject.GetComponent<Interaction>();
+            if (npcConvCooldown > 0f || (otherInteraction != null && otherInteraction.npcConvCooldown > 0f))
                 return;
 
             npcComponent.isInConversation = true;
@@ -197,13 +218,19 @@ public class Interaction : MonoBehaviour
 
         bool stopped = factory.StopNPCConversation(a, b);
         if (stopped)
-        {
             Debug.Log($"[Conversation End] {a.getName()} and {b.getName()} finished talking");
-            a.isInConversation = false;
-            a.GetComponent<NpcMovement>().canMove = true;
-            b.isInConversation = false;
-            b.GetComponent<NpcMovement>().canMove = true;
-        }
+
+        // Always release flags — even if no session was running the NPCs must not stay frozen
+        a.isInConversation = false;
+        a.GetComponent<NpcMovement>().canMove = true;
+        b.isInConversation = false;
+        b.GetComponent<NpcMovement>().canMove = true;
+
+        // Set cooldown on both Interaction components so they don't immediately re-trigger
+        var intA = a.GetComponent<Interaction>();
+        var intB = b.GetComponent<Interaction>();
+        if (intA != null) intA.npcConvCooldown = NPC_CONV_COOLDOWN;
+        if (intB != null) intB.npcConvCooldown = NPC_CONV_COOLDOWN;
     }
 
     private GameObject FindChildByNameIncludingInactive(Transform parent, string name)

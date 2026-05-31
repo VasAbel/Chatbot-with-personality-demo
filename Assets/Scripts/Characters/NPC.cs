@@ -29,6 +29,7 @@ public class NPC : MonoBehaviour
         memory.currentThoughts.Clear();
         foreach (var t in ParseInitialThoughts(desc.thoughts))
             memory.currentThoughts.Add(t);
+        ParseInitialSocialMemory(desc.social);
     }
 
     public void SetPlan(string location, string reason)
@@ -42,6 +43,22 @@ public class NPC : MonoBehaviour
     {
         pendingPlanLocation = null;
         pendingPlanReason = null;
+    }
+
+    private void ParseInitialSocialMemory(string socialBlock)
+    {
+        if (string.IsNullOrWhiteSpace(socialBlock)) return;
+
+        var lines = socialBlock.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            int colon = line.IndexOf(':');
+            if (colon <= 0) continue;
+            string personName = line.Substring(0, colon).Trim();
+            string knowledge = line.Substring(colon + 1).Trim();
+            if (!string.IsNullOrWhiteSpace(personName) && !string.IsNullOrWhiteSpace(knowledge))
+                memory.socialByNpc[personName] = knowledge;
+        }
     }
 
     private IEnumerable<Thought> ParseInitialThoughts(string thoughtsBlock)
@@ -468,7 +485,7 @@ Return only the JSON object.";
             }
         }
 
-        Debug.Log($"🧠 Memory log written for {getName()} at {logPath}");
+        Debug.Log($"Memory log written for {getName()} at {logPath}");
     }
 
     public void DecayThoughts(float dt)

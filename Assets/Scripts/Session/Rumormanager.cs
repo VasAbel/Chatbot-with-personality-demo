@@ -27,6 +27,7 @@ public class RumorManager : MonoBehaviour
     }
 
     // Called when the player plants a rumor by typing it to an NPC.
+    // rumorText should already be validated as rumor-worthy before calling this.
     public void PlantRumor(string rumorText, NPC targetNpc)
     {
         var rumor = new Rumor(rumorText, "Player");
@@ -35,6 +36,46 @@ public class RumorManager : MonoBehaviour
         GiveRumorToNpc(targetNpc.getName(), rumor);
 
         Debug.Log($"[Rumors] Player planted rumor to {targetNpc.getName()}: \"{rumorText}\"");
+    }
+
+    // Called for raw player messages â€” uses LLM to decide if the message is
+    // actually rumor-worthy before planting anything.
+    public async Task TryPlantPlayerRumor(string playerMessage, NPC targetNpc)
+    {
+        if (_gpt == null || string.IsNullOrWhiteSpace(playerMessage)) return;
+
+        string playerName = Assets.Game_Manager.ConfigManager.Instance.GetPlayerName();
+
+        string system =
+            "You decide whether a message sent by a visitor contains a rumor worth spreading in a small village. " +
+            "A rumor is specific, interesting information about a person, event, or place that villagers would gossip about. " +
+            "Greetings, small talk, compliments, and vague questions do NOT count as rumors. " +
+            "Reply with plain text only, not json â€” either one sentence rephrasing the rumor from the NPC's point of view, " +
+            "or exactly the word NONE if nothing is rumor-worthy.";
+
+        string user =
+            $"The visitor ({playerName}) said this to an NPC:\n\"{playerMessage}\"\n\n" +
+            "Is there anything here that would be worth spreading as a rumor? If yes, write it. If no, reply NONE.";
+
+        try
+        {
+            string result = await _gpt.RequestGenericJsonAsync(system, user, fallbackJson: "NONE", maxTokens: 80);
+            result = result.Trim().Trim('"');
+
+            if (string.IsNullOrWhiteSpace(result) || result.Equals("NONE", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log($"[Rumors] Player message not rumor-worthy, skipping.");
+                return;
+            }
+
+            if (result.StartsWith("{")) return; // JSON error fallback
+
+            PlantRumor(result, targetNpc);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[Rumors] Player rumor check failed: {ex.Message}");
+        }
     }
 
     // Called at the end of an NPC-NPC conversation.
@@ -138,7 +179,7 @@ public class RumorManager : MonoBehaviour
             );
 
             // RequestGenericJsonAsync expects JSON but we're abusing it for plain text here.
-            // If the result starts with { it's probably a JSON error — return null to use verbatim.
+            // If the result starts with { it's probably a JSON error ï¿½ return null to use verbatim.
             if (result.TrimStart().StartsWith("{")) return null;
             return result.Trim().Trim('"');
         }
@@ -156,7 +197,7 @@ public class RumorManager : MonoBehaviour
         string system = "You are deciding whether an NPC in a village simulation should spread a rumor based on a conversation they just had. " +
                         "A rumor is a piece of interesting, surprising, or gossip-worthy information about another person, place, or event. " +
                         "Greetings, small talk, and opinions are NOT rumors. " +
-                        "Reply with plain text only — not json — just the rumor as a single sentence, or exactly the word NONE if nothing is rumor-worthy.";
+                        "Reply with plain text only ï¿½ not json ï¿½ just the rumor as a single sentence, or exactly the word NONE if nothing is rumor-worthy.";
 
 
         string user = $"{npc.getName()} just had this conversation:\n\"{conversationText}\"\n\n" +

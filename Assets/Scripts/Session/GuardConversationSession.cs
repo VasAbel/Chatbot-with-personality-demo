@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Assets.Game_Manager;
 
 public class GuardConversationSession : ConversationSession
 {
@@ -36,7 +37,6 @@ public class GuardConversationSession : ConversationSession
 
     public override void PrepareForNextSpeaker(GptClient client)
     {
-        //Build vouch status string
         var vouched = _guardState.requiredVouchers
                                    .Where(n => _guardState.HasVouch(n))
                                    .ToList();
@@ -48,11 +48,11 @@ public class GuardConversationSession : ConversationSession
         if (vouched.Count == 0)
             vouchBlock = "None of the villagers have spoken well of this stranger yet.";
         else if (unvouched.Count == 0)
-            vouchBlock = $"Every villager you trust has vouched for this stranger: " +
-                         $"{string.Join(", ", vouched)}.";
+            vouchBlock = "Every villager you trust has vouched for this stranger: " +
+                         string.Join(", ", vouched) + ".";
         else
-            vouchBlock = $"Vouched for by: {string.Join(", ", vouched)}. " +
-                         $"Still no word from: {string.Join(", ", unvouched)}.";
+            vouchBlock = "Vouched for by: " + string.Join(", ", vouched) + ". " +
+                         "Still no word from: " + string.Join(", ", unvouched) + ".";
 
         string rumorBlock = "(no rumors yet)";
         if (RumorManager.Instance != null)
@@ -60,19 +60,26 @@ public class GuardConversationSession : ConversationSession
             var rumors = RumorManager.Instance.GetRumorsKnownBy(_guard.getName());
             if (rumors != null && rumors.Count > 0)
                 rumorBlock = string.Join("\n",
-                    rumors.Select(r => $"- From {r.heardFrom}: \"{r.currentText}\""));
+                    rumors.Select(r => "- From " + r.heardFrom + ": \"" + r.currentText + "\""));
         }
 
+        int vouchedCount = vouched.Count;
+        string warmthHint;
+        if (vouchedCount >= 2)
+            warmthHint = "The village's trusted residents have largely spoken well of this stranger. You are close to being convinced — a sincere conversation could tip the balance.";
+        else if (vouchedCount == 1)
+            warmthHint = "One trusted villager has vouched for this stranger so far. You are cautiously open, but you want to hear more.";
+        else
+            warmthHint = "No one you trust has spoken about this stranger yet. Stay measured — be fair but firm.";
+
         string situation =
-        $@"- Current in-game time: {_timestamp}
-        - You are stationed at: {_currentArea}
-        - Your trust in this stranger: {_guardState.TrustLevel:F0} / 100
+            "- Current in-game time: " + _timestamp + "\n" +
+            "- You are stationed at: " + _currentArea + "\n" +
+            "- Your current trust in this stranger (" + ConfigManager.Instance.GetPlayerName() + "): " + _guardState.TrustLevel.ToString("F0") + " / 100\n" +
+            "- " + warmthHint + "\n\n" +
+            "VOUCH STATUS:\n" + vouchBlock + "\n\n" +
+            "RUMORS AND THINGS YOU'VE HEARD:\n" + rumorBlock;
 
-        VOUCH STATUS:
-        {vouchBlock}
-
-        RUMORS YOU HAVE HEARD:
-        {rumorBlock}";
         BuildGuardSystemMessage(client, situation);
     }
 
@@ -83,25 +90,35 @@ public class GuardConversationSession : ConversationSession
 
     private string ExtraGuardInstructions()
     {
-        bool allVouched = _guardState.requiredVouchers
-                                     .All(n => _guardState.HasVouch(n));
-        string stance = _guardState.IsDoorUnlocked
-            ? "\n\nThe door is now open. You have stepped aside and allow the stranger to pass."
-            : allVouched
-                ? "\n\nEvery villager you trust has vouched for this stranger. " +
-                  "You are still cautious, but you are very close to letting them in."
-                : "\n\nYou will not open the Townhouse until you have heard good word " +
-                  "from ALL of the village's trusted residents: Tim, Amy, and Gabriel. " +
-                  "You can be warmed by honest conversation, but you will not be tricked.";
-        return @"
-MANDATORY � append this tag at the end of EVERY reply, no exceptions:
-[TRUST_DELTA: N]
-N is an integer from -10 to +10. Use these guidelines:
-- Friendly small talk, warmth, curiosity about the village: +1 or +2
-- Player shows genuine respect for the village or its people: +3 to +5
-- Player mentions Tim, Amy, or Gabriel positively: +3
-- Player is evasive, pushy, or asks to enter without earning trust: -2 to -5
-- Neutral or unclear: 0
-The tag must be the very last line. Never skip it." + stance;
+        bool allVouched = _guardState.requiredVouchers.All(n => _guardState.HasVouch(n));
+        int vouchedCount = _guardState.requiredVouchers.Count(n => _guardState.HasVouch(n));
+
+        string stance;
+        if (_guardState.IsDoorUnlocked)
+            stance = "\n\n*** THE DOOR IS NOW OPEN. YOUR DUTY IS FULFILLED. ***\n" +
+                     "You MUST explicitly tell the stranger that the door is open and they may enter the Townhouse. " +
+                     "Say something like: 'The door is open — you're welcome to go in.' " +
+                     "Be warm and brief. Do NOT ask more questions or act like the door is still closed. " +
+                     "This is the most important thing to communicate in your reply.";
+        else if (allVouched)
+            stance = "\n\nEvery villager you trust has vouched for this stranger. You feel ready to let them in — you are on the verge of opening the door.";
+        else if (vouchedCount >= 2)
+            stance = "\n\nTwo of your trusted villagers have spoken well of this stranger. You're genuinely warming up. A sincere conversation could be enough to open the door.";
+        else if (vouchedCount == 1)
+            stance = "\n\nOne trusted villager has vouched for this stranger. That counts for something — but you need more before you open the Townhouse.";
+        else
+            stance = "\n\nNo one you trust has spoken about this stranger yet. Be fair and hear them out — but don't open the door without good reason.";
+
+        return
+            stance +
+            "\n\nMandatory — end EVERY reply with this tag on its own line, no exceptions:\n" +
+            "[TRUST_DELTA: N]\n" +
+            "N is an integer from -10 to +10. Reflect how this exchange felt to you as Steve:\n" +
+            "- Stranger is open, honest, warm, genuinely curious about the village: +1 to +3\n" +
+            "- Shares a personal reason that feels real and compelling: +3 to +5\n" +
+            "- Stranger is evasive, impatient, or avoids your questions: -2 to -4\n" +
+            "- Stranger tries to pressure, bribe, or manipulate you: -5 to -10\n" +
+            "- Neutral exchange: 0\n" +
+            "The tag must be the very last line of your reply. Never skip it.";
     }
 }

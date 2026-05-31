@@ -1,4 +1,5 @@
 {
 	"timerLength": 300,
-	"chatbotFallbackUrl": "cg.iit.bme.hu:16786/v1"
+	"chatbotFallbackUrl": "cg.iit.bme.hu:16786/v1",
+	"playerName": "Jade"
 }

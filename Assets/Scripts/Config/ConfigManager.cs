@@ -11,6 +11,7 @@ namespace Assets.Game_Manager
         {
             public int timerLength;
             public string chatbotFallbackUrl;
+            public string playerName;
         }
 
         [Serializable]
@@ -25,6 +26,8 @@ namespace Assets.Game_Manager
             public string name;
             public string core;
             public string thoughts;
+            // "Name: what this NPC knows about them" lines, one per person
+            public string social;
         }
 
         private static readonly Lazy<ConfigManager> _instance =
@@ -47,6 +50,7 @@ namespace Assets.Game_Manager
         public static ConfigManager Instance => _instance.Value;
         public int GetTimerLength() => config.timerLength;
         public string GetChatbotUrl() => config.chatbotFallbackUrl;
+        public string GetPlayerName() => string.IsNullOrWhiteSpace(config.playerName) ? "Stranger" : config.playerName;
 
         public string GetCharacterDescription(int idx) => desc.descriptions[idx].core;
         public Description GetFullCharacterDescription(int idx) => desc.descriptions[idx];

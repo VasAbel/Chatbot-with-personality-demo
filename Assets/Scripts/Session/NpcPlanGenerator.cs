@@ -22,7 +22,7 @@ public static class NpcPlanGenerator
         string system =
             "You decide whether an NPC in a village simulation wants to go somewhere after a conversation. " +
             "Reply with a json object like: " +
-            "{\"hasPlan\": true, \"location\": \"Townhouse\", \"reason\": \"wants to tell Steve about Jade\"} " +
+            "{\"hasPlan\": true, \"location\": \"Townhouse\", \"reason\": \"wants to tell Steve about the stranger\"} " +
             "or {\"hasPlan\": false, \"location\": \"\", \"reason\": \"\"}. " +
             "Only make a plan if something in the conversation genuinely motivates it. " +
             "Use only valid location IDs from the provided list.";
