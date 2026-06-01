@@ -113,6 +113,9 @@ public class NPC : MonoBehaviour
 
     async void Start()
     {
+        // Override Awake() defaults with persisted memory if a save file exists.
+        LoadMemoryFromJson();
+
         bool usedDefault = ApplyDefaultSchedule();
         if (!usedDefault)
         {
@@ -432,6 +435,43 @@ Return only the JSON object.";
         }
 
         return lines.Count == 0 ? "Nothing learnt yet." : string.Join("\n\n", lines);
+    }
+
+    private string GetMemorySavePath() =>
+        Path.Combine(Application.persistentDataPath, $"{getName()}_memory.json");
+
+    public void SaveMemoryToJson()
+    {
+        try
+        {
+            string json = JsonConvert.SerializeObject(memory, Newtonsoft.Json.Formatting.Indented);
+            File.WriteAllText(GetMemorySavePath(), json);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[{npcName}] Failed to save memory JSON: {ex.Message}");
+        }
+    }
+
+    public void LoadMemoryFromJson()
+    {
+        string path = GetMemorySavePath();
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            string json = File.ReadAllText(path);
+            var loaded = JsonConvert.DeserializeObject<NpcMemory>(json);
+            if (loaded != null)
+            {
+                memory = loaded;
+                Debug.Log($"[{npcName}] Memory loaded from saved file.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[{npcName}] Failed to load memory JSON (using defaults): {ex.Message}");
+        }
     }
 
     public void LogMemoryToFile()

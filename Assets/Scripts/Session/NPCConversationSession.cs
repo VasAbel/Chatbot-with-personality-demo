@@ -90,6 +90,18 @@ public class NPCConversationSession : ConversationSession
         }
         else
         {
+            // If this villager has already vouched via GuardState, don't prompt them to vouch again.
+            GuardState guardState = UnityEngine.Object.FindObjectOfType<GuardState>();
+            bool alreadyVouched = guardState != null && guardState.HasVouch(speaker.getName());
+
+            if (alreadyVouched)
+            {
+                return "\n\n- You are talking to Steve, the guard at the Townhouse. " +
+                       "You've already shared your honest opinion about the visitor with Steve. " +
+                       "There's no need to bring it up again unless he specifically asks. " +
+                       "Talk about whatever else is on your mind.";
+            }
+
             // Look for any social entry about someone who is NOT a known village NPC.
             // The player may have given a different name than the config playerName.
             var knownNpcs = new System.Collections.Generic.HashSet<string> { "Tim", "Amy", "Gabriel", "Steve" };

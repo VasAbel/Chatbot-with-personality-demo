@@ -245,7 +245,7 @@ public class ConsoleChatbot : MonoBehaviour
                 Debug.Log("[Debug] Entering user input branch");
                 Debug.Log("User's turn. Please type a message:");
                 string userInput = await WaitForUserInput(token);
-                if (string.IsNullOrEmpty(userInput)) break;
+                if (string.IsNullOrEmpty(userInput) || !session.IsActive) break;
 
                 Debug.Log($"[Debug] User typed: {userInput}");
                 Debug.Log($"[Debug] talkingTo={talkingTo?.getName() ?? "null"}");
@@ -301,6 +301,8 @@ public class ConsoleChatbot : MonoBehaviour
     }
     private async Task<string> WaitForUserInput(CancellationToken token)
     {
+        // Clear any stale listeners from sessions that didn't clean up cleanly.
+        userInputField.onSubmit.RemoveAllListeners();
         userInputField.gameObject.SetActive(true);
         userInputField.text = "";
         userInputField.ActivateInputField();
@@ -313,7 +315,7 @@ public class ConsoleChatbot : MonoBehaviour
             {
                 userInputField.gameObject.SetActive(false);
                 userInputField.onSubmit.RemoveListener(OnSubmit);
-                tcs.SetResult(text);
+                tcs.TrySetResult(text);
             }
         }
 
@@ -571,7 +573,9 @@ Return ONLY the JSON object.";
         LogMemoryDelta(npc2.getName(), npc1.getName(), convId, pairCount, json2, npc2BeforeMem, npc2);
 
         npc1.LogMemoryToFile();
+        npc1.SaveMemoryToJson();
         npc2.LogMemoryToFile();
+        npc2.SaveMemoryToJson();
     }
 
     // Memory update for player-NPC conversations — only the NPC's side is updated.
@@ -656,6 +660,7 @@ Return ONLY the JSON object.";
         json = SanitizeJson(json);
         ApplyMemoryJson(npc, json);
         npc.LogMemoryToFile();
+        npc.SaveMemoryToJson();
         Debug.Log($"[Memory] {npc.getName()} memory updated after talking to the player.");
     }
 
