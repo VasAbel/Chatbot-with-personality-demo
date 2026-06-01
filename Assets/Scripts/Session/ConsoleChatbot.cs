@@ -293,6 +293,7 @@ public class ConsoleChatbot : MonoBehaviour
             n2.isInConversation = false;
             n2.GetComponent<NpcMovement>().canMove = true;
             Debug.Log($"[Conversation End] {n1.getName()} and {n2.getName()} finished talking");
+            session.MemoryUpdated = true;
             _ = UpdateMemoryAndRumorsForSession(session);
         }
         Debug.Log("Conversation ended.");
@@ -347,7 +348,11 @@ public class ConsoleChatbot : MonoBehaviour
 
             if (!conversationID.StartsWith("User-"))
             {
-                _ = UpdateMemoryAndRumorsForSession(session);
+                if (!session.MemoryUpdated)
+                {
+                    session.MemoryUpdated = true;
+                    _ = UpdateMemoryAndRumorsForSession(session);
+                }
             }
             else if (session is UserConversationSession userSess)
             {
@@ -387,6 +392,13 @@ public class ConsoleChatbot : MonoBehaviour
 
     private async Task UpdateMemoryForSession(ConversationSession session)
     {
+        // User-NPC conversation: different path — only the NPC's memory is updated
+        if (session is UserConversationSession userSess)
+        {
+            await UpdateNpcMemoryForUserSession(userSess);
+            return;
+        }
+
         var npc1 = ((NPCConversationSession)session).GetNPC(0);
         var npc2 = ((NPCConversationSession)session).GetNPC(1);
 
@@ -560,6 +572,91 @@ Return ONLY the JSON object.";
 
         npc1.LogMemoryToFile();
         npc2.LogMemoryToFile();
+    }
+
+    // Memory update for player-NPC conversations — only the NPC's side is updated.
+    // The player is treated as a named visitor, not a village NPC.
+    private async Task UpdateNpcMemoryForUserSession(UserConversationSession session)
+    {
+        NPC npc = session.GetNPC();
+        string playerName = Assets.Game_Manager.ConfigManager.Instance.GetPlayerName();
+        string fullConversation = string.Join("\n", session.GetMessageHistory());
+
+        string baseInstr = @"
+You are a memory updater for a role-playing simulation.
+Reply with VALID JSON ONLY (no markdown, no commentary).
+Use exactly this schema:
+
+{
+  ""core"": {
+    ""add"":    [""...""],
+    ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+    ""remove"": [0, 1]
+  },
+  ""social"": {
+    ""NPC_OR_VISITOR_NAME"": {
+      ""add"":    [""...""],
+      ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+      ""remove"": [0, 1]
+    }
+  },
+  ""thoughts"": {
+    ""add"":       [""...""],
+    ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+    ""remove"":      [0, 1]
+  }
+}
+
+SECTION DEFINITIONS:
+- core: stable, long-term facts about THIS NPC only (job, values, habits). Never put info about other people here.
+- social: what THIS NPC believes about others. The visitor's name may appear here if the NPC learned something about them.
+- thoughts: short-term plans, impressions, current projects of THIS NPC.
+
+If no changes are needed for a section, omit it entirely.
+Keep strings concise (< 120 chars). Avoid near-duplicates.
+";
+
+        string userPrompt = $@"
+Self: {npc.getName()}
+Other person in this conversation: a visiting stranger (not a village NPC — use whatever name they gave during the conversation, if any)
+
+Previous CORE (indexed):
+{ToIndexedLines(npc.memory.corePersonality
+    .Split('\n')
+    .Select(l => l.Trim())
+    .Where(l => !string.IsNullOrWhiteSpace(l)))}
+
+Previous SOCIAL (indexed per person):
+{string.Join("\n\n", npc.memory.socialByNpc.Select(kv =>
+$"[{kv.Key}]\n{ToIndexedLines((kv.Value ?? "").Split('\n').Select(l => l.Trim()).Where(l => !string.IsNullOrWhiteSpace(l)))}"))}
+
+Previous THOUGHTS (indexed):
+{(npc.memory.currentThoughts == null || npc.memory.currentThoughts.Count == 0
+    ? "(none)"
+    : string.Join("\n", npc.memory.currentThoughts
+        .OrderByDescending(t => t.salience)
+        .Select((t, i) => $"{i}: {t.text.Trim()}")))}
+
+CURRENT Conversation:
+{fullConversation}
+
+Task: Update {npc.getName()}'s memory based on what was said.
+- core & thoughts are about {npc.getName()} only.
+- social may include the visitor, stored under whatever name they used during the conversation.
+- Only record information actually revealed in this conversation.
+
+Return ONLY the JSON object.";
+
+        string json;
+        if (client is GptClient gpt)
+            json = await gpt.RequestJsonAsync(baseInstr, userPrompt, 500);
+        else
+            json = await client.SendChatMessageAsync(baseInstr + "\n\n" + userPrompt);
+
+        json = SanitizeJson(json);
+        ApplyMemoryJson(npc, json);
+        npc.LogMemoryToFile();
+        Debug.Log($"[Memory] {npc.getName()} memory updated after talking to the player.");
     }
 
     private static bool KnowsPartner(NPC self, NPC partner)
@@ -1072,19 +1169,17 @@ Return ONLY the JSON object.";
         if (guardState == null) return;
         if (guardState.HasVouch(villager.getName())) return; // already vouched, skip
 
-        string playerName = Assets.Game_Manager.ConfigManager.Instance.GetPlayerName();
-
         string system =
             "You are analysing a conversation in a village simulation. " +
-            "Decide whether the villager expressed a clearly positive opinion of the stranger named " + playerName + ". " +
-            "'Positive opinion' means they said " + playerName + " seems trustworthy, kind, genuine, " +
-            "or that Steve should let them in — even indirectly. " +
-            "Uncertainty or neutral talk does NOT count. " +
+            "Decide whether the villager expressed a clearly positive opinion of any visitor or stranger — " +
+            "meaning they said the visitor seems trustworthy, kind, or genuine, " +
+            "or that Steve should let them in, even indirectly. " +
+            "Uncertainty, neutral talk, or merely mentioning the visitor does NOT count. " +
             "Reply with JSON only: {\"vouches\": true} or {\"vouches\": false}";
 
         string user =
             $"Conversation between {villager.getName()} and Steve:\n{conversation}\n\n" +
-            $"Did {villager.getName()} express a positive opinion of {playerName}?";
+            $"Did {villager.getName()} clearly endorse or speak positively of any visitor or stranger?";
 
         try
         {
@@ -1093,12 +1188,12 @@ Return ONLY the JSON object.";
 
             if (raw.Contains("true"))
             {
-                Debug.Log($"[Vouch] {villager.getName()} vouched for {playerName} in NPC-Steve conversation.");
+                Debug.Log($"[Vouch] {villager.getName()} vouched for the visitor in NPC-Steve conversation.");
                 guardState.RegisterVouch(villager.getName());
             }
             else
             {
-                Debug.Log($"[Vouch] {villager.getName()} did not clearly vouch for {playerName}.");
+                Debug.Log($"[Vouch] {villager.getName()} did not clearly vouch for the visitor.");
             }
         }
         catch (System.Exception ex)

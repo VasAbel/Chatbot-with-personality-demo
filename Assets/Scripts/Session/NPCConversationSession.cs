@@ -84,33 +84,50 @@ public class NPCConversationSession : ConversationSession
 
         if (speakerIsSteve)
         {
-            return $"\n\n- You are talking to a fellow villager you trust. " +
-                   $"If they mention anything about the stranger {playerName}, pay close attention — " +
-                   $"their opinion matters to you when deciding whether to let {playerName} into the Townhouse.";
+            return "\n\n- You are talking to a fellow villager you trust. " +
+                   "If they mention anything about a visitor or stranger passing through the village, " +
+                   "pay close attention — their opinion matters to you when deciding whether to let that person in.";
         }
         else
         {
+            // Look for any social entry about someone who is NOT a known village NPC.
+            // The player may have given a different name than the config playerName.
+            var knownNpcs = new System.Collections.Generic.HashSet<string> { "Tim", "Amy", "Gabriel", "Steve" };
+            string visitorKey = null;
             string playerOpinion = "";
-            foreach (var thought in speaker.memory.currentThoughts)
+
+            foreach (var kv in speaker.memory.socialByNpc)
             {
-                if (thought.text.Contains(playerName) && thought.salience > 0.2f)
+                if (!knownNpcs.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
                 {
-                    playerOpinion = thought.text;
+                    visitorKey = kv.Key;
+                    playerOpinion = kv.Value;
                     break;
                 }
             }
-            if (string.IsNullOrWhiteSpace(playerOpinion) && speaker.memory.socialByNpc.ContainsKey(playerName))
-                playerOpinion = speaker.memory.socialByNpc[playerName];
+
+            // Fallback: check thoughts for anything not about known NPCs
+            if (string.IsNullOrWhiteSpace(playerOpinion))
+            {
+                foreach (var t in speaker.memory.currentThoughts.OrderByDescending(x => x.salience))
+                {
+                    if (t.salience > 0.25f && !knownNpcs.Any(n => t.text.StartsWith(n)))
+                    {
+                        playerOpinion = t.text;
+                        break;
+                    }
+                }
+            }
 
             string opinionHint = !string.IsNullOrWhiteSpace(playerOpinion)
-                ? $"\n  Your current impression of {playerName}: \"{playerOpinion}\""
-                : $"\n  You may or may not have met {playerName} — share whatever honest impression you have.";
+                ? (visitorKey != null
+                    ? $"\n  What you know about the visitor (they told you their name is {visitorKey}): \"{playerOpinion}\""
+                    : $"\n  Your impression: \"{playerOpinion}\"")
+                : "\n  You may or may not have met the visitor passing through the village — share whatever honest impression you have.";
 
-            return $"\n\n- You are talking to Steve, the guard at the Townhouse. " +
-                   $"Steve only opens the Townhouse for visitors that the village's trusted residents vouch for. " +
-                   $"Your vouch carries real weight with him. " +
-                   $"If you have met the stranger named {playerName} and formed an opinion, tell Steve honestly what you think — " +
-                   $"a simple 'I think {playerName} seems trustworthy' or 'I'm not sure about {playerName} yet' goes a long way." +
+            return "\n\n- You are talking to Steve, the guard at the Townhouse. " +
+                   "Steve is careful about who he lets in, and the opinion of trusted villagers carries real weight with him. " +
+                   "If you have met a visitor recently and formed an opinion of them, tell Steve honestly what you think." +
                    opinionHint;
         }
     }

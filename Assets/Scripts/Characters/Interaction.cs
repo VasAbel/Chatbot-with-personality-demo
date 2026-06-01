@@ -220,11 +220,17 @@ public class Interaction : MonoBehaviour
         if (stopped)
             Debug.Log($"[Conversation End] {a.getName()} and {b.getName()} finished talking");
 
-        // Always release flags — even if no session was running the NPCs must not stay frozen
-        a.isInConversation = false;
-        a.GetComponent<NpcMovement>().canMove = true;
-        b.isInConversation = false;
-        b.GetComponent<NpcMovement>().canMove = true;
+        // Release flags — but NEVER override a user conversation that started mid-wait
+        if (!a.isTalkingToUser)
+        {
+            a.isInConversation = false;
+            a.GetComponent<NpcMovement>().canMove = true;
+        }
+        if (!b.isTalkingToUser)
+        {
+            b.isInConversation = false;
+            b.GetComponent<NpcMovement>().canMove = true;
+        }
 
         // Set cooldown on both Interaction components so they don't immediately re-trigger
         var intA = a.GetComponent<Interaction>();

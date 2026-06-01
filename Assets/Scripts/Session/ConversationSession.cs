@@ -20,4 +20,5 @@ public abstract class ConversationSession
     }
     public int TurnCount { get; set; } = 0;
     public void IncrementTurnCount() => TurnCount++;
+    public bool MemoryUpdated { get; set; } = false;
 }

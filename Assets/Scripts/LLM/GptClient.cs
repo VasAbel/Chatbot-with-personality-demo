@@ -135,7 +135,7 @@ public class GptClient : ChatClient
         {
             var resp = await openAIApi.CreateChatCompletion(req);
             if (resp.Choices != null && resp.Choices.Count > 0)
-                return resp.Choices[0].Message.Content;
+                return resp.Choices[0].Message.Content ?? fallbackJson;
         }
         catch (Exception ex)
         {

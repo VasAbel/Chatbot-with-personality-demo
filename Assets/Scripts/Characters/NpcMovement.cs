@@ -33,6 +33,9 @@ public class NpcMovement : Movement
             agent.stoppingDistance = 0.3f;
             agent.updateRotation = false;
             agent.updateUpAxis = false;
+            // NPCs pass through each other — no physical pushing between agents.
+            // Conversation detection uses trigger colliders, not physics contact.
+            agent.obstacleAvoidanceType = UnityEngine.AI.ObstacleAvoidanceType.NoObstacleAvoidance;
         }
         _spawnPos = transform.position;
     }
@@ -45,15 +48,10 @@ public class NpcMovement : Movement
             if (agent != null)
             {
                 agent.isStopped = true;
-                agent.velocity = Vector3.zero;   // kill any residual momentum immediately
-                agent.avoidancePriority = 0;     // absolute top priority — nothing can push this NPC
+                agent.velocity = Vector3.zero;
             }
             return;
         }
-
-        // Restore normal priority when moving
-        if (agent != null && agent.avoidancePriority != 50)
-            agent.avoidancePriority = 50;
 
         // --- Wander mode: pick random NavMesh points, ignore schedule ---
         if (WanderMode)
