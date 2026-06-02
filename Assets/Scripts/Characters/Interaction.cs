@@ -122,16 +122,41 @@ public class Interaction : MonoBehaviour
                  && !npcComponent.isInConversation
                  && userConvCooldown <= 0f)          // don't start mid-cooldown
         {
-            dialogueBox.gameObject.SetActive(true);
-            responseBox.SetActive(true);
-            playerMovement.canMove = false;
-            npcMovement.canMove = false;
-            interactionText.SetActive(false);
+            // If a user conversation with a DIFFERENT NPC is still active (e.g. the player
+            // walked off without pressing Tab), end it cleanly first so the player can
+            // always start a fresh conversation with the NPC they just walked up to.
+            NPC activeUserNpc = factory.GetNpcToUser();
+            if (activeUserNpc != null && activeUserNpc != npcComponent)
+                EndUserConversationFor(activeUserNpc);
 
-            npcComponent.isInConversation = true;
-            npcComponent.isTalkingToUser = true;
-            factory.RegisterUserNPC(npcComponent, dialogueBox, responseBox);
+            // Only commit the UI / movement lock / flags if registration actually succeeds.
+            if (factory.RegisterUserNPC(npcComponent, dialogueBox, responseBox))
+            {
+                dialogueBox.gameObject.SetActive(true);
+                responseBox.SetActive(true);
+                playerMovement.canMove = false;
+                npcMovement.canMove = false;
+                interactionText.SetActive(false);
+
+                npcComponent.isInConversation = true;
+                npcComponent.isTalkingToUser = true;
+            }
         }
+    }
+
+    // Cleanly tears down a user conversation that belongs to another NPC, releasing its
+    // conversation flags and movement so it never lingers and blocks new conversations.
+    private void EndUserConversationFor(NPC npc)
+    {
+        if (npc == null) return;
+
+        npc.isInConversation = false;
+        npc.isTalkingToUser = false;
+
+        var otherMovement = npc.GetComponent<NpcMovement>();
+        if (otherMovement != null) otherMovement.canMove = true;
+
+        factory.StopUserConversation(npc);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -146,7 +171,12 @@ public class Interaction : MonoBehaviour
             NPC otherNPCComponent = other.gameObject.GetComponent<NPC>();
 
             if (npcComponent.isInConversation || otherNPCComponent.isInConversation)
+            {
+                // One of us is currently busy — schedule a retry so the conversation
+                // can start once they become free (OnTriggerEnter won't re-fire itself).
+                StartCoroutine(DelayedConversationStart(otherNPCComponent, 15f));
                 return;
+            }
 
             // Cooldown: don't restart a conversation right after one just ended
             // (prevents physics-push re-triggering the same pair immediately)
@@ -288,12 +318,25 @@ public class Interaction : MonoBehaviour
     private IEnumerator DelayedConversationStart(NPC otherNPC, float delay)
     {
         yield return new WaitForSeconds(delay);
-        
-        if (!npcComponent.isInConversation && !otherNPC.isInConversation)
-        {
-            List<NPC> npcs = new List<NPC> { npcComponent, otherNPC };
-            string sessionKey = npcs[0].getName() + "-" + npcs[1].getName();
-            factory.RegisterNPC(sessionKey, npcs);
-        }
+
+        // Skip if a conversation involving either NPC just ended (cooldown active)
+        // or if either one has since become occupied another way.
+        if (npcConvCooldown > 0f) yield break;
+        if (npcComponent.isInConversation || otherNPC.isInConversation) yield break;
+
+        // Mirror the same flag-setup that OnTriggerEnter does before calling RegisterNPC,
+        // so both NPCs are properly locked before the session is created.
+        npcComponent.isInConversation = true;
+        otherNPC.isInConversation = true;
+        npcMovement.canMove = false;
+        var otherMovement = otherNPC.GetComponent<NpcMovement>();
+        if (otherMovement != null) otherMovement.canMove = false;
+
+        // Sort by idx so the session key is consistent with how StopNPCConversation looks it up.
+        NPC first  = npcComponent.idx < otherNPC.idx ? npcComponent : otherNPC;
+        NPC second = npcComponent.idx < otherNPC.idx ? otherNPC : npcComponent;
+        List<NPC> npcs = new List<NPC> { first, second };
+        string sessionKey = first.getName() + "-" + second.getName();
+        factory.RegisterNPC(sessionKey, npcs);
     }
 }

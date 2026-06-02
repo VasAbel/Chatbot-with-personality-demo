@@ -72,7 +72,6 @@
     <Compile Include="Assets\Scripts\Session\UserConversationSession.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationFactory.cs" />
     <Compile Include="Assets\Scripts\Session\Guardstate.cs" />
-    <Compile Include="Assets\Scripts\Session\Vouchdetector.cs" />
     <Compile Include="Assets\Scripts\Characters\NPC.cs" />
     <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
     <Compile Include="Assets\Scripts\Characters\NpcMovement.cs" />

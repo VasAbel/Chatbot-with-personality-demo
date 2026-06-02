@@ -27,16 +27,17 @@ public class ConversationFactory : MonoBehaviour
         TryStartNPCConversation(key);
     }
 
-    public void RegisterUserNPC(NPC npc, TMP_InputField dialogueBox, GameObject responseBox)
+    public bool RegisterUserNPC(NPC npc, TMP_InputField dialogueBox, GameObject responseBox)
     {
         if (npcToUser != null)
         {
             Debug.Log("A user conversation is already active. Ignoring new NPC registration.");
-            return;
+            return false;
         }
 
         npcToUser = npc;
         TryStartUserConversation(dialogueBox, responseBox);
+        return true;
     }
 
     /*void Update()

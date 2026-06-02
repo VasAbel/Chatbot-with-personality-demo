@@ -6,7 +6,7 @@ public class Rumor
 {
     public string rumorId;           
     public string originalText;      
-    public string currentText;       // current (possibly distorted) version
+    public string currentText;       
     public string heardFrom;         
     public List<string> spreadChain; // ordered list: player -> NPC1 -> NPC2 etc.
     public long createdUnix;
@@ -23,7 +23,7 @@ public class Rumor
         createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     }
 
-    // Create a copy to pass to the next NPC, with a possibly distorted text
+    //Create a copy to pass to the next NPC, with a possibly distorted text
     public Rumor PassTo(string nextNpc, string distortedText = null)
     {
         var copy = new Rumor

@@ -75,7 +75,7 @@ public class GuardConversationSession : ConversationSession
         string situation =
             "- Current in-game time: " + _timestamp + "\n" +
             "- You are stationed at: " + _currentArea + "\n" +
-            "- Your current trust in this stranger (" + ConfigManager.Instance.GetPlayerName() + "): " + _guardState.TrustLevel.ToString("F0") + " / 100\n" +
+            "- Your current trust in this stranger: " + _guardState.TrustLevel.ToString("F0") + " / 100\n" +
             "- " + warmthHint + "\n\n" +
             "VOUCH STATUS:\n" + vouchBlock + "\n\n" +
             "RUMORS AND THINGS YOU'VE HEARD:\n" + rumorBlock;
@@ -111,14 +111,17 @@ public class GuardConversationSession : ConversationSession
 
         return
             stance +
+            "\n\nIMPORTANT — you do NOT know this stranger's name. You have never been introduced to them. " +
+            "If they ask whether you know them or what their name is, be honest that you don't know it unless they " +
+            "tell you their name during THIS conversation. Never invent, guess, or assume a name for them." +
             "\n\nMandatory — end EVERY reply with this tag on its own line, no exceptions:\n" +
             "[TRUST_DELTA: N]\n" +
             "N is an integer from -10 to +10. Reflect how this exchange felt to you as Steve:\n" +
-            "- Stranger is open, honest, warm, genuinely curious about the village: +1 to +3\n" +
-            "- Shares a personal reason that feels real and compelling: +3 to +5\n" +
+            "- Stranger is open, honest, warm, genuinely curious about the village: +3 to +5\n" +
+            "- Shares a personal reason that feels real and compelling: +5 to +8\n" +
             "- Stranger is evasive, impatient, or avoids your questions: -2 to -4\n" +
             "- Stranger tries to pressure, bribe, or manipulate you: -5 to -10\n" +
-            "- Neutral exchange: 0\n" +
+            "- Neutral small talk: +1\n" +
             "The tag must be the very last line of your reply. Never skip it.";
     }
 }

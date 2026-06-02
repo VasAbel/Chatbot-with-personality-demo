@@ -145,6 +145,41 @@ public class GptClient : ChatClient
         return fallbackJson;  // safe fallback for non-memory JSON
     }
 
+    // Plain-text variant: no ResponseFormat constraint, used for rumor detection and distortion.
+    public async Task<string> RequestPlainTextAsync(string system, string user,
+                                                    string fallback = "", int maxTokens = 150)
+    {
+        EnsureClientInitialized();
+        if (openAIApi == null)
+        {
+            Debug.LogWarning("OpenAI client not initialized; returning fallback.");
+            return fallback;
+        }
+
+        var req = new CreateChatCompletionRequest
+        {
+            Model = "gpt-4o-mini",
+            Messages = new List<ChatMessage>
+            {
+                new ChatMessage { Role = "system", Content = system },
+                new ChatMessage { Role = "user",   Content = user   }
+            },
+            MaxTokens = maxTokens,
+            Temperature = 0.5f,
+        };
+
+        try
+        {
+            var resp = await openAIApi.CreateChatCompletion(req);
+            if (resp.Choices != null && resp.Choices.Count > 0)
+                return resp.Choices[0].Message.Content?.Trim() ?? fallback;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Plain text request failed: {ex.Message}");
+        }
+        return fallback;
+    }
 
     public async Task<string> RequestJsonAsync(string system, string user, int maxTokens = 500)
     {

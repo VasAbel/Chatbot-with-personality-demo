@@ -5,7 +5,7 @@ public class PlayerMovement : Movement
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        speed = 3f; // Player is 2x faster than NPCs
+        speed = 5f;
     }
     void Update()
     {

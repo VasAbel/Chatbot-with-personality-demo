@@ -437,10 +437,12 @@ SECTION DEFINITIONS:
   Things that are true even months or years later.
   Never put information about other people into core.
   Never put temporary plans, current projects or transient thoughts here.
+  CRITICAL: Visitor/stranger names and visitor-specific events must NEVER appear in core, even phrased as something the NPC did (e.g. 'helped a visitor named X' is forbidden).
 
 - social:
   What THIS NPC believes about OTHER NPCs, their traits, habits, preferences, roles, and changes in their life.
   Keys in ""social"" must be other NPC names only (never the self name).
+  IMPORTANT: If a visitor or stranger was mentioned in this conversation, their information MAY be stored in social — but ONLY as an entry keyed by the visitor's own name. Do NOT embed the visitor's name or visitor-specific facts into the text of any known NPC's social entry, and do NOT put visitor information into core.
 
 - thoughts:
   TYPICAL WORDS: today/this week/currently/trying/planning/worried/excited
@@ -538,6 +540,7 @@ Task:
 - Remember:
   - core & thoughts are ONLY about {self.getName()},
   - social is ONLY about others (never {self.getName()}).
+  - If a visitor/stranger was mentioned: store their info in social under the visitor's own name as the key ONLY. Do NOT embed visitor names or visitor-specific facts into core or into the text of any known NPC's social entry.
 - Use the JSON schema exactly as described above.
 
 Return ONLY the JSON object.";
@@ -612,8 +615,8 @@ Use exactly this schema:
 }
 
 SECTION DEFINITIONS:
-- core: stable, long-term facts about THIS NPC only (job, values, habits). Never put info about other people here.
-- social: what THIS NPC believes about others. The visitor's name may appear here if the NPC learned something about them.
+- core: stable, long-term facts about THIS NPC only (job, values, habits). Never put info about other people here. CRITICAL: Visitor/stranger names and visitor-specific events must NEVER appear in core.
+- social: what THIS NPC believes about others. The visitor's name may appear here if the NPC learned something about them. IMPORTANT: The visitor's information must be stored ONLY as a social entry keyed by the visitor's own name. Do NOT embed the visitor's name or visitor-specific facts into core or into social entries for known village NPCs.
 - thoughts: short-term plans, impressions, current projects of THIS NPC.
 
 If no changes are needed for a section, omit it entirely.
@@ -646,7 +649,8 @@ CURRENT Conversation:
 
 Task: Update {npc.getName()}'s memory based on what was said.
 - core & thoughts are about {npc.getName()} only.
-- social may include the visitor, stored under whatever name they used during the conversation.
+- social may include the visitor, stored under whatever name they used during the conversation — keyed by the visitor's own name ONLY.
+- Do NOT embed the visitor's name or visitor-specific facts into core or into social entries for known village NPCs.
 - Only record information actually revealed in this conversation.
 
 Return ONLY the JSON object.";
@@ -790,6 +794,11 @@ Return ONLY the JSON object.";
 
     private void ApplyMemoryJson(NPC npc, string json)
     {
+        // If the app is shutting down, an in-flight async memory update may land after the
+        // game clock has been torn down — applying it would stamp garbage timestamps
+        // (e.g. 0001-01-01) into the saved memory. Discard it instead.
+        if (_isQuitting) return;
+
         if (string.IsNullOrWhiteSpace(json)) return;
 
         MemoryDeltaRoot delta = null;
@@ -1259,8 +1268,11 @@ Return ONLY the JSON object.";
         return cleaned;
     }
 
+    private bool _isQuitting = false;
+
     private void OnApplicationQuit()
     {
+        _isQuitting = true;
         StopAllConversations();
     }
 

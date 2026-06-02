@@ -90,7 +90,6 @@ public class NPCConversationSession : ConversationSession
         }
         else
         {
-            // If this villager has already vouched via GuardState, don't prompt them to vouch again.
             GuardState guardState = UnityEngine.Object.FindObjectOfType<GuardState>();
             bool alreadyVouched = guardState != null && guardState.HasVouch(speaker.getName());
 
@@ -102,8 +101,7 @@ public class NPCConversationSession : ConversationSession
                        "Talk about whatever else is on your mind.";
             }
 
-            // Look for any social entry about someone who is NOT a known village NPC.
-            // The player may have given a different name than the config playerName.
+            //Look for any social entry about someone who is NOT a known village NPC.
             var knownNpcs = new System.Collections.Generic.HashSet<string> { "Tim", "Amy", "Gabriel", "Steve" };
             string visitorKey = null;
             string playerOpinion = "";
@@ -118,7 +116,6 @@ public class NPCConversationSession : ConversationSession
                 }
             }
 
-            // Fallback: check thoughts for anything not about known NPCs
             if (string.IsNullOrWhiteSpace(playerOpinion))
             {
                 foreach (var t in speaker.memory.currentThoughts.OrderByDescending(x => x.salience))

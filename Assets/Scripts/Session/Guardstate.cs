@@ -37,7 +37,7 @@ public class GuardState : MonoBehaviour
         }
     }
 
-    // Called by ConsoleChatbot after each player-Guard exchange,
+    //Called by ConsoleChatbot after each player-Guard exchange,
     public void ApplyTrustDelta(float delta)
     {
         TrustLevel = Mathf.Clamp(TrustLevel + delta, 0f, 100f);

@@ -464,6 +464,41 @@ Return only the JSON object.";
             var loaded = JsonConvert.DeserializeObject<NpcMemory>(json);
             if (loaded != null)
             {
+                // CORE is the immutable character definition. Always rebuild it from the
+                // config so invented, run-specific facts (e.g. a one-off "festival",
+                // visitor names) that the LLM wrote into core in a previous run can never
+                // bleed into a new session. Saved core is intentionally discarded.
+                loaded.corePersonality = desc.core ?? "";
+
+                // Strip visitor entries so the player is always a stranger at game start.
+                if (loaded.socialByNpc != null)
+                {
+                    var knownNpcs = new HashSet<string> { "Tim", "Amy", "Gabriel", "Steve" };
+                    var toRemove = loaded.socialByNpc.Keys.Where(k => !knownNpcs.Contains(k)).ToList();
+                    foreach (var key in toRemove)
+                        loaded.socialByNpc.Remove(key);
+
+                    // Light scrub: drop any line in a known NPC's social entry that still
+                    // mentions a past visitor by the configured player name, so visitor
+                    // bleed cannot survive inside another villager's relationship memory.
+                    string playerName = ConfigManager.Instance.GetPlayerName();
+                    if (!string.IsNullOrWhiteSpace(playerName))
+                    {
+                        foreach (var key in loaded.socialByNpc.Keys.ToList())
+                        {
+                            string val = loaded.socialByNpc[key];
+                            if (string.IsNullOrWhiteSpace(val)) continue;
+                            var keptLines = val
+                                .Split('\n')
+                                .Where(line => line.IndexOf(playerName, StringComparison.OrdinalIgnoreCase) < 0)
+                                .ToList();
+                            loaded.socialByNpc[key] = string.Join("\n", keptLines);
+                        }
+                    }
+                }
+                // Clear session-specific thoughts so previous-run visitor context
+                // (vouch intentions, surveillance plans, etc.) cannot leak into new sessions.
+                loaded.currentThoughts?.Clear();
                 memory = loaded;
                 Debug.Log($"[{npcName}] Memory loaded from saved file.");
             }
