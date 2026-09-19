@@ -87,6 +87,12 @@ public class NPC : MonoBehaviour
             Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
             ApplyDefaultSchedule();
 
+            NPCGlobalTimer fallbackTimer = FindObjectOfType<NPCGlobalTimer>();
+            if (SocialEventManager.Instance != null && fallbackTimer != null)
+            {
+                SocialEventManager.Instance.ApplyEventsToSchedule(npcName, fallbackTimer.GetCurrentDateTime(), dailySchedule);
+            }
+
             MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
         }
 
@@ -154,7 +160,8 @@ REALISM RULES:
 - Regular work/school usually happens during daytime, commonly starting in the morning.
 - Workplaces are usually visited on workdays more than on weekends, unless the memory clearly suggests otherwise.
 - Social visits and errands are more common in the afternoon or evening than deep at night.
-- If memory clearly refers to something planned for the current day, prioritize that over default routines.
+- Concrete social-event logistics come from the authoritative event list supplied below, not from memory.
+- If an event is listed for this NPC today, the NPC must be at that event's place during the listed hour.
 
 SELF-CHECK BEFORE ANSWERING:
 1. Make sure ""hours"" has exactly 24 items.
@@ -178,6 +185,10 @@ SELF-CHECK BEFORE ANSWERING:
 
         string homeId = $"HouseOf{npcName}";
 
+        string eventScheduleBlock = (SocialEventManager.Instance != null && timer != null)
+            ? SocialEventManager.Instance.BuildScheduleContext(npcName, timer.GetCurrentDateTime())
+            : "(none)";
+
         string user = $@"
 Generate the daily schedule for this NPC for the following in-game date.
 
@@ -195,12 +206,16 @@ Social memory:
 Current thoughts and plans:
 {(string.IsNullOrWhiteSpace(thoughtsBlock) ? "(none)" : thoughtsBlock)}
 
+Authoritative planned social events for this NPC today:
+{eventScheduleBlock}
+
 Available location IDs:
 {placesList}
 
-Important interpretation note:
-Some memory items may refer to relative dates such as ""tomorrow"", ""next Friday"", or ""this weekend"".
-Use the current in-game date and the memory timestamps to infer whether such plans are relevant for today.
+Social-event scheduling rule:
+- The authoritative event list above is the single source of truth for concrete social appointments.
+- For each listed event, set the schedule entry for that exact hour to the listed place ID.
+- If no event is listed, plan the NPC's normal believable daily routine from personality and general context.
 
 Generate the schedule for the 24 hours of this date, from 00:00 to 24:00.
 Return only the JSON object.";
@@ -271,6 +286,11 @@ Return only the JSON object.";
 
         dailySchedule = hours;
 
+        if (SocialEventManager.Instance != null && timer != null)
+        {
+            SocialEventManager.Instance.ApplyEventsToSchedule(npcName, timer.GetCurrentDateTime(), dailySchedule);
+        }
+
         MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
         //Debug.Log($"[{npcName}] LLM schedule normalized to exactly 24 valid entries.");
         return true;
@@ -340,6 +360,12 @@ Return only the JSON object.";
             {
                 Debug.LogWarning($"[{npcName}] Falling back to default hard-coded schedule.");
                 ApplyDefaultSchedule();
+
+                NPCGlobalTimer fallbackTimer = FindObjectOfType<NPCGlobalTimer>();
+                if (SocialEventManager.Instance != null && fallbackTimer != null)
+                {
+                    SocialEventManager.Instance.ApplyEventsToSchedule(npcName, fallbackTimer.GetCurrentDateTime(), dailySchedule);
+                }
 
                 MeasurementLogger.Instance?.LogDailySchedule(this, dailySchedule);
             }

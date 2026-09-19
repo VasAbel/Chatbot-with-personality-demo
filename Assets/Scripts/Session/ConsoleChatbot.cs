@@ -316,7 +316,7 @@ public class ConsoleChatbot : MonoBehaviour
 
             if (session is NPCConversationSession npcSession)
             {
-                _ = UpdateMemoryThenRelease(npcSession);
+                _ = UpdatePostConversationThenRelease(npcSession);
             }
 
             return true;
@@ -325,7 +325,7 @@ public class ConsoleChatbot : MonoBehaviour
         return false;
     }
 
-    private async Task UpdateMemoryThenRelease(NPCConversationSession session)
+    private async Task UpdatePostConversationThenRelease(NPCConversationSession session)
     {
         NPC npc1 = session.GetNPC(0);
         NPC npc2 = session.GetNPC(1);
@@ -345,6 +345,15 @@ public class ConsoleChatbot : MonoBehaviour
 
                 return;
             }
+            if (SocialEventManager.Instance != null)
+            {
+                await SocialEventManager.Instance.UpdateEventsFromConversationAsync(session, client);
+            }
+            else
+            {
+                Debug.LogWarning("[EVENTS] SocialEventManager is missing, so no global event update was performed.");
+            }
+
             await UpdateMemoryForSession(session);
         }
         finally
@@ -360,7 +369,7 @@ public class ConsoleChatbot : MonoBehaviour
             npc1.isConversationBlocked = false;
             npc2.isConversationBlocked = false;
 
-            Debug.Log($"Released {npc1.getName()} and {npc2.getName()} after memory update.");
+            Debug.Log($"Released {npc1.getName()} and {npc2.getName()} after post-conversation processing.");
         }
     }
 
@@ -462,11 +471,13 @@ SECTION DEFINITIONS:
   TYPICAL WORDS: today/this week/currently/trying/planning/worried/excited
   Short-term or **evolving ideas/plans** of THIS NPC: current projects, considering/planning/might/soon
   Volatile thoughts that can appear, change, or disappear quickly.
-  VERY IMPORTANT: Planning activities with others is a typical element of thought section. Always note down specific locations or timeslots (days, hours, dates) IF IT WAS DISCUSSED IN THE CONVERSATION, so the NPC memorizes what they agreed to. 
+  Concrete social-event logistics are handled by a separate global event registry.
+  Do NOT store exact event date/time/place/attendee details merely so the NPC remembers an appointment.
+  You MAY keep a brief personal thought about the event's purpose, anticipation, worry, or motivation if that matters independently of the logistics.
 
 CLASSIFY WITH THESE EXAMPLES:
 - core (about SELF): ""Teaches history."" ""Values craftsmanship."" ""Often hikes on weekends."" ""Believes healthy food is important to be happy.""
-- thoughts: ""Currently building a table."" ""Considering collaborating with Gabriel soon."" ""Thinking about hosting a party."" ""Planning to visit her brother.""
+- thoughts: ""Currently building a table."" ""Considering collaborating with Gabriel soon."" ""Thinking about hosting a party."" ""Looking forward to apologizing to Tim.""
 - social (about OTHERS): ""Gabriel teaches history and loves storytelling."" ""John is currently planning to throw a party.""
 
 OPERATIONS:
@@ -551,6 +562,8 @@ CURRENT Conversation (latest session, including speaker names):
 Task:
 - Decide what to add, update, or remove in core, social, and thoughts.
 - Only consider information that was actually revealed or implied in the CURRENT conversation.
+- Do not duplicate concrete social-event logistics (exact date/time/place/attendees); those are stored separately in the global event registry.
+- A short personal thought about why the event matters may still be stored if useful.
 - Remember:
   - core & thoughts are ONLY about {self.getName()},
   - social is ONLY about others (never {self.getName()}).
@@ -743,6 +756,9 @@ Return ONLY the JSON object.";
     - thoughts should remain temporary and current.
     - stable long-term traits should be in core, not thoughts.
     - social should only contain information about other people.
+    - Exact logistics of social appointments (date, hour, place, attendee list) are handled by the separate global social-event registry.
+    - Remove redundant exact appointment logistics from memory rather than preserving them here.
+    - It is still fine to keep a non-logistical personal thought about why an event matters, anticipation, worry, or motivation.
 
     TIMESTAMP RULES (CRITICAL):
     - Every thought must have a valid gameTimestamp in the exact format: yyyy-MM-dd HH:mm dddd

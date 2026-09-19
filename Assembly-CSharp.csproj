@@ -81,6 +81,7 @@
     <Compile Include="Assets\Scripts\ChatBubble\ChatBubble.cs" />
     <Compile Include="Assets\Scripts\Logging\MeasurementLogger.cs" />
     <Compile Include="Assets\Scripts\OrthoAutoFramer.cs" />
+    <Compile Include="Assets\Scripts\Memory\SocialEventManager.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationSession.cs" />
     <Compile Include="Assets\Scripts\Config\ConfigManager.cs" />
     <Compile Include="Assets\Scripts\Session\ConsoleChatbot.cs" />

@@ -289,6 +289,21 @@ public class GptClient : ChatClient
         string situationBlock = string.IsNullOrWhiteSpace(situationalContext)
             ? "- (no extra situational context)\n"
             : situationalContext.Trim() + "\n";
+
+        string placesSnippet = "- (place registry unavailable)\n";
+        if (PlaceRegistry.Instance != null)
+        {
+            var placeIds = PlaceRegistry.Instance.GetAllPlaceNames()
+                .OrderBy(id => id)
+                .ToList();
+
+            if (placeIds.Count > 0)
+            {
+                placesSnippet = string.Join("\n", placeIds.Select(id =>
+                    $"- {PlaceRegistry.Instance.GetPlaceDisplayName(id)} (ID: {id})"
+                )) + "\n";
+            }
+        }
     
         string sys = $@"
 You are role-playing {currentSpeaker.getName()}, an NPC living in a small village.
@@ -310,6 +325,12 @@ Short-term plans, interests, and current concerns:
 
 # Situation right now
 {situationBlock}
+
+# Places available in the village
+These are the locations that can be used for concrete meeting plans:
+{placesSnippet}
+- When agreeing on a specific meeting place, choose one of these available locations.
+- Speak naturally using the human-readable place name. The ID is only the canonical internal reference.
 
 # How to behave in conversation
 - Act like a normal villager having a real conversation, not like someone reciting stored facts.

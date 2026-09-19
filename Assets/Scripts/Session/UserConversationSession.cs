@@ -10,6 +10,7 @@ public class UserConversationSession : ConversationSession
     private readonly string currentArea;
     private readonly string heading;
     private readonly string timestamp;
+    private readonly string eventContext;
 
     public UserConversationSession(NPC npc)
     {
@@ -19,6 +20,9 @@ public class UserConversationSession : ConversationSession
         currentArea = npc.GetCurrentAreaName();
         heading = npc.GetHeadingDisplayName();
         timestamp = npc.GetCurrentGameTimestamp();
+        eventContext = SocialEventManager.Instance != null
+            ? SocialEventManager.Instance.BuildConversationContext(npc, null)
+            : "- Global event registry unavailable.";
     }
 
     public override NPC GetCurrentSpeaker()
@@ -37,7 +41,9 @@ public class UserConversationSession : ConversationSession
         string situation =
 $@"- Current in-game time: {timestamp}
 - You are currently at: {currentArea}
-- Before meeting the player, you were heading to: {heading}";
+- Before meeting the player, you were heading to: {heading}
+- Registered social-event context relevant to you:
+{eventContext}";
 
         client.SetSystemMessage(messageHistory, npc, npc, situation);
     }

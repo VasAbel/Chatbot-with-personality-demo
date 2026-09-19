@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -12,6 +13,9 @@ public class NPCConversationSession : ConversationSession
     private readonly string npc1Heading;
     private readonly string npc2Heading;
     private readonly string conversationTimestamp;
+    private readonly DateTime conversationDateTime;
+    private readonly string npc1EventContext;
+    private readonly string npc2EventContext;
 
     public NPCConversationSession(NPC npc1, NPC npc2)
     {
@@ -24,6 +28,15 @@ public class NPCConversationSession : ConversationSession
         npc1Heading = npc1.GetHeadingDisplayName();
         npc2Heading = npc2.GetHeadingDisplayName();
         conversationTimestamp = npc1.GetCurrentGameTimestamp();
+        var timer = UnityEngine.Object.FindObjectOfType<NPCGlobalTimer>();
+        conversationDateTime = timer != null ? timer.GetCurrentDateTime() : DateTime.Now;
+
+        npc1EventContext = SocialEventManager.Instance != null
+            ? SocialEventManager.Instance.BuildConversationContext(npc1, npc2)
+            : "- Global event registry unavailable.";
+        npc2EventContext = SocialEventManager.Instance != null
+            ? SocialEventManager.Instance.BuildConversationContext(npc2, npc1)
+            : "- Global event registry unavailable.";
 
         Debug.Log(
             $"[Conversation Start] {npc1.getName()} ↔ {npc2.getName()}\n" +
@@ -68,11 +81,14 @@ public class NPCConversationSession : ConversationSession
 
         string currentArea = isNpc1 ? npc1CurrentArea : npc2CurrentArea;
         string heading = isNpc1 ? npc1Heading : npc2Heading;
+        string eventContext = isNpc1 ? npc1EventContext : npc2EventContext;
 
         return
 $@"- Current in-game time: {conversationTimestamp}
 - You are currently at: {currentArea}
-- Before meeting your conversation partner, you were heading to: {heading}";
+- Before meeting your conversation partner, you were heading to: {heading}
+- Registered social-event context relevant to you:
+{eventContext}";
     }
 
     public override void PrepareForNextSpeaker(GptClient client)
@@ -87,6 +103,8 @@ $@"- Current in-game time: {conversationTimestamp}
     }
 
     public override bool IsUserConversation() => false;
+
+    public DateTime GetConversationDateTime() => conversationDateTime;
 
     public NPC GetNPC(int index)
     {
