@@ -17,15 +17,15 @@ public class SocialEvent
     // date: yyyy-MM-dd, hour: 0..23. Null/empty means not agreed yet.
     public string date;
     public int? hour;
-
-    public bool isPublic;
+    // organizers = people hosting/creating the event.
+    // attendees = people who are confirmed/expected to participate.
+    // knownBy = people who have actually learned about the event.
+    public List<string> organizers = new List<string>();
     public List<string> attendees = new List<string>();
+    public List<string> knownBy = new List<string>();
     public string placeId;                 // null/empty while unresolved
     public string description;
-    public string status = "pending";     // pending | planned | cancelled
-
-    // Legacy migration support for the first event-registry version.
-    public string dateTime;
+    public string status = "pending";     // pending | planned
 
     // Useful for debugging / later thesis analysis.
     public string createdGameTimestamp;
@@ -39,7 +39,6 @@ public class SocialEventManager : MonoBehaviour
 
     private const string EventFileName = "social_events.json";
     private const string EventDateFormat = "yyyy-MM-dd";
-    private const string LegacyDateTimeFormat = "yyyy-MM-dd HH:mm";
 
     private readonly object eventDataLock = new object();
     private readonly SemaphoreSlim eventUpdateSemaphore = new SemaphoreSlim(1, 1);
@@ -58,8 +57,9 @@ public class SocialEventManager : MonoBehaviour
     {
         public string date;
         public int? hour;
-        public bool isPublic;
+        public List<string> organizers;
         public List<string> attendees;
+        public List<string> knownBy;
         public string placeId;
         public string description;
     }
@@ -75,7 +75,6 @@ public class SocialEventManager : MonoBehaviour
     {
         public List<EventProposal> add;
         public List<EventUpdateProposal> update;
-        public List<string> cancel;
     }
 
     private void Awake()
@@ -126,30 +125,30 @@ public class SocialEventManager : MonoBehaviour
         if (e == null)
             return;
 
-        // Migrate entries written by the first version, which used one dateTime string.
-        if ((string.IsNullOrWhiteSpace(e.date) || !e.hour.HasValue) &&
-            !string.IsNullOrWhiteSpace(e.dateTime) &&
-            DateTime.TryParseExact(
-                e.dateTime.Trim(),
-                LegacyDateTimeFormat,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out DateTime legacy))
-        {
-            e.date = legacy.ToString(EventDateFormat);
-            e.hour = legacy.Hour;
-        }
+        e.organizers = NormalizeNameList(e.organizers);
+        e.attendees = NormalizeNameList(e.attendees);
+        e.knownBy = NormalizeNameList(e.knownBy);
 
-        e.dateTime = null;
-        e.attendees ??= new List<string>();
-        e.attendees = e.attendees
+        // Current-schema invariant:
+        // organizers are participants, and every participant necessarily knows about the event.
+        e.attendees = UnionNames(e.attendees, e.organizers);
+        e.knownBy = UnionNames(e.knownBy, e.attendees);
+
+        e.status = IsComplete(e) ? "planned" : "pending";
+    }
+
+    private static List<string> NormalizeNameList(IEnumerable<string> names)
+    {
+        return (names ?? Enumerable.Empty<string>())
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .Select(a => a.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
 
-        if (!string.Equals(e.status, "cancelled", StringComparison.OrdinalIgnoreCase))
-            e.status = IsComplete(e) ? "planned" : "pending";
+    private static List<string> UnionNames(params IEnumerable<string>[] groups)
+    {
+        return NormalizeNameList(groups.Where(g => g != null).SelectMany(g => g));
     }
 
     private static int ParseEventNumber(string eventId)
@@ -175,8 +174,9 @@ public class SocialEventManager : MonoBehaviour
             eventId = e.eventId,
             date = e.date,
             hour = e.hour,
-            isPublic = e.isPublic,
+            organizers = e.organizers != null ? new List<string>(e.organizers) : new List<string>(),
             attendees = e.attendees != null ? new List<string>(e.attendees) : new List<string>(),
+            knownBy = e.knownBy != null ? new List<string>(e.knownBy) : new List<string>(),
             placeId = e.placeId,
             description = e.description,
             status = e.status,
@@ -268,9 +268,6 @@ public class SocialEventManager : MonoBehaviour
         return timer != null ? timer.GetFullTimestamp() : DateTime.Now.ToString("yyyy-MM-dd HH:mm");
     }
 
-    private static bool IsCancelled(SocialEvent e) =>
-        e != null && string.Equals(e.status, "cancelled", StringComparison.OrdinalIgnoreCase);
-
     private static bool IsPlanned(SocialEvent e) =>
         e != null && string.Equals(e.status, "planned", StringComparison.OrdinalIgnoreCase);
 
@@ -285,35 +282,42 @@ public class SocialEventManager : MonoBehaviour
         bool hasDate = ParseDate(e.date).HasValue;
         bool hasHour = e.hour.HasValue && e.hour.Value >= 0 && e.hour.Value <= 23;
         bool hasPlace = !string.IsNullOrWhiteSpace(e.placeId);
-        bool hasPeople = e.isPublic || (e.attendees != null && e.attendees.Count >= 2);
+        bool hasParticipants = (e.organizers != null && e.organizers.Count > 0) ||
+                               (e.attendees != null && e.attendees.Count > 0);
 
-        return hasDate && hasHour && hasPlace && hasPeople && !string.IsNullOrWhiteSpace(e.description);
+        // planned/pending describes whether logistics are complete, not whether every possible
+        // attendee has already heard about or accepted an open event.
+        return hasDate && hasHour && hasPlace && hasParticipants && !string.IsNullOrWhiteSpace(e.description);
     }
 
-    private static bool IsRelevantToNpc(SocialEvent e, string npcName)
+    private static bool IsKnownToNpc(SocialEvent e, string npcName)
     {
         if (e == null || string.IsNullOrWhiteSpace(npcName))
             return false;
 
-        if (e.isPublic)
-            return true;
-
-        return e.attendees != null &&
-               e.attendees.Any(a => string.Equals(a, npcName, StringComparison.OrdinalIgnoreCase));
+        return IncludesName(e.knownBy, npcName) || IncludesName(e.organizers, npcName) || IncludesName(e.attendees, npcName);
     }
 
-    private static bool IncludesNpc(SocialEvent e, string npcName)
+    private static bool IsScheduledParticipant(SocialEvent e, string npcName)
     {
-        return e?.attendees != null &&
+        if (e == null || string.IsNullOrWhiteSpace(npcName))
+            return false;
+
+        return IncludesName(e.organizers, npcName) || IncludesName(e.attendees, npcName);
+    }
+
+    private static bool IncludesName(List<string> names, string npcName)
+    {
+        return names != null &&
                !string.IsNullOrWhiteSpace(npcName) &&
-               e.attendees.Any(a => string.Equals(a, npcName, StringComparison.OrdinalIgnoreCase));
+               names.Any(a => string.Equals(a, npcName, StringComparison.OrdinalIgnoreCase));
     }
 
     // Past entries stay in the file for analysis, but are hidden from LLM/runtime context.
-    // An unresolved plan without a date cannot be proven overdue, so it remains relevant until resolved/cancelled.
+    // An unresolved plan without a date cannot be proven overdue, so it remains relevant until resolved.
     private static bool IsPresentOrFuture(SocialEvent e, DateTime now)
     {
-        if (e == null || IsCancelled(e))
+        if (e == null)
             return false;
 
         var date = ParseDate(e.date);
@@ -334,7 +338,7 @@ public class SocialEventManager : MonoBehaviour
     {
         var relevant = SnapshotEvents()
             .Where(IsPlanned)
-            .Where(e => IsRelevantToNpc(e, npcName))
+            .Where(e => IsScheduledParticipant(e, npcName))
             .Where(IsComplete)
             .Where(e => ParseDate(e.date)?.Date == now.Date)
             .Where(e => e.hour.HasValue && e.hour.Value >= now.Hour)
@@ -355,7 +359,7 @@ public class SocialEventManager : MonoBehaviour
 
         var relevant = SnapshotEvents()
             .Where(IsPlanned)
-            .Where(e => IsRelevantToNpc(e, npcName))
+            .Where(e => IsScheduledParticipant(e, npcName))
             .Where(IsComplete)
             .Where(e => ParseDate(e.date)?.Date == now.Date)
             .Where(e => e.hour.HasValue && e.hour.Value >= now.Hour)
@@ -397,8 +401,7 @@ public class SocialEventManager : MonoBehaviour
         string currentArea = npc.GetCurrentAreaName();
 
         var relevant = SnapshotEvents()
-            .Where(e => !IsCancelled(e))
-            .Where(e => IsRelevantToNpc(e, npcName))
+            .Where(e => IsKnownToNpc(e, npcName))
             .Where(e => IsPresentOrFuture(e, now))
             .OrderBy(EventSortTime)
             .ThenBy(e => e.eventId)
@@ -408,6 +411,21 @@ public class SocialEventManager : MonoBehaviour
             return "- No current, upcoming, or unresolved registered social events are relevant to you.";
 
         var lines = new List<string>();
+
+        string partnerLabel = string.IsNullOrWhiteSpace(partnerName) ? "the player" : partnerName;
+        lines.Add(
+            $"- Existing-event conversation guidance: the events below are upcoming events you know about. " +
+            $"'Known by' lists who has learned about an event; 'attendees' lists people currently confirmed/expected to participate; 'organizers' lists people responsible for organizing it. " +
+            $"These meanings apply to YOUR OWN name too: if you are listed only under 'known by', you know the event exists but you are NOT currently planning or expected to attend. " +
+            $"In that case, you may naturally mention or discuss the event, but do not speak as if you will attend, describe what you will do there, or normally invite others on the event's behalf. " +
+            $"Your status can change naturally during this conversation: for example, if someone invites you and you clearly accept, you may then talk as someone who plans to attend. " +
+            $"Your current conversation partner is {partnerLabel}. " +
+            $"For each event, if {partnerLabel} is NOT in 'known by', do not speak as if they already know what event you mean: introduce/explain it first if you choose to bring it up. " +
+            $"If {partnerLabel} is already in 'known by', you may discuss it as shared knowledge. " +
+            $"If you are an organizer or attendee and {partnerLabel} is not, you may invite them when that feels natural and socially appropriate. " +
+            $"If you invite them to an already planned event, naturally tell them the known date, time, and place so they know when and where it is. " +
+            $"This is only an available conversational possibility, not a task: do not force existing events into the conversation, and do not invite people when the event seems private or the invitation would feel unnatural or unrelated."
+        );
 
         // First inspect every fully planned event that is scheduled for THIS exact game hour.
         var scheduledNow = relevant
@@ -425,20 +443,13 @@ public class SocialEventManager : MonoBehaviour
             {
                 bool placeMatches = PlaceRegistry.Instance != null &&
                                     PlaceRegistry.Instance.IsInsidePlace(e.placeId, npc.transform.position);
-                bool partnerMatches = e.isPublic || IncludesNpc(e, partnerName);
+                bool partnerMatches = IsScheduledParticipant(e, partnerName);
 
                 lines.Add("  " + FormatEventForConversation(e, npcName));
                 lines.Add($"    Time matches: YES ({e.hour.Value:00}:00). Current place: {currentArea}. Planned place matches: {(placeMatches ? "YES" : "NO")}.");
 
-                if (e.isPublic)
-                {
-                    lines.Add("    This is public, so the current conversation partner does not need to be a specific attendee.");
-                }
-                else
-                {
-                    string currentPartner = string.IsNullOrWhiteSpace(partnerName) ? "the player" : partnerName;
-                    lines.Add($"    Current conversation partner: {currentPartner}. Planned attendee matches: {(partnerMatches ? "YES" : "NO")}.");
-                }
+                string currentPartner = string.IsNullOrWhiteSpace(partnerName) ? "the player" : partnerName;
+                lines.Add($"    Current conversation partner: {currentPartner}. Expected participant matches: {(partnerMatches ? "YES" : "NO")}.");
 
                 if (placeMatches && partnerMatches)
                 {
@@ -497,19 +508,6 @@ public class SocialEventManager : MonoBehaviour
 
     private static string FormatEventForConversation(SocialEvent e, string selfName)
     {
-        string people;
-        if (e.isPublic)
-        {
-            people = "PUBLIC (all villagers invited)";
-        }
-        else
-        {
-            var others = (e.attendees ?? new List<string>())
-                .Where(a => !string.Equals(a, selfName, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            people = others.Count > 0 ? "with " + string.Join(", ", others) : "private event";
-        }
-
         string when = $"{(string.IsNullOrWhiteSpace(e.date) ? "DATE NOT AGREED" : e.date)} " +
                       $"{(e.hour.HasValue ? e.hour.Value.ToString("00") + ":00" : "TIME NOT AGREED")}";
 
@@ -526,7 +524,26 @@ public class SocialEventManager : MonoBehaviour
             place = $"{displayPlace} ({e.placeId})";
         }
 
-        return $"[{e.status.ToUpperInvariant()} {e.eventId}] {when} | {place} | {people} | {e.description}";
+        string organizers = (e.organizers != null && e.organizers.Count > 0) ? string.Join(", ", e.organizers) : "none specified";
+        string attendees = (e.attendees != null && e.attendees.Count > 0) ? string.Join(", ", e.attendees) : "none confirmed yet";
+        string knownBy = (e.knownBy != null && e.knownBy.Count > 0) ? string.Join(", ", e.knownBy) : "none recorded";
+
+        string selfStatus;
+        if (IncludesName(e.organizers, selfName))
+        {
+            selfStatus = "ORGANIZER - you organize this event and are expected to attend";
+        }
+        else if (IncludesName(e.attendees, selfName))
+        {
+            selfStatus = "ATTENDEE - you are currently expected/planning to attend";
+        }
+        else
+        {
+            selfStatus = "KNOWS ABOUT ONLY - you know this event exists but are not currently expected/planning to attend";
+        }
+
+        return $"[{e.status.ToUpperInvariant()} {e.eventId}] {when} | {place} | {e.description} | " +
+               $"YOUR STATUS: {selfStatus} | organizers: {organizers} | attendees: {attendees} | known by: {knownBy}";
     }
 
     public async Task UpdateEventsFromConversationAsync(NPCConversationSession session, GptClient client)
@@ -547,7 +564,7 @@ public class SocialEventManager : MonoBehaviour
             // Keep past events in storage, but do not burden the logger with them.
             // Pending events with no date remain visible because they still need clarification.
             var relevantSnapshot = SnapshotEvents()
-                .Where(e => IsCancelled(e) || IsPresentOrFuture(e, now))
+                .Where(e => IsPresentOrFuture(e, now))
                 .Where(e =>
                 {
                     var d = ParseDate(e.date);
@@ -579,35 +596,33 @@ public class SocialEventManager : MonoBehaviour
 
             string system = @"
 You are the social-event registry updater for a village simulation.
-Your only task is to detect social plans that were created, clarified, changed, reconfirmed, or cancelled in the CURRENT conversation.
+Your only task is to maintain the shared event registry from the CURRENT conversation.
 Reply with VALID JSON ONLY. No markdown and no commentary.
 
-There are two kinds of stored events:
-1. PLANNED: date, whole-hour time, place, and participants/public scope are all known.
-2. PENDING: the NPCs clearly agreed that they intend to arrange/attend a real future social meeting, but one or more of date, hour, or place is still unresolved.
+MAIN DECISION PROCESS — FOLLOW IN THIS ORDER:
 
-IMPORTANT:
-- Store a PENDING event when there is clear mutual intent to make a real future plan, even if some logistics are missing.
-- Do NOT create an event from a one-sided suggestion, casual wish, joke, vague non-committal comment, or merely because the current topic could be continued later.
+STEP 1 — DID THE CONVERSATION ACTUALLY INVOLVE A REAL SOCIAL EVENT OR FUTURE SHARED ACTIVITY?
+First decide whether the CURRENT conversation actually:
+- created a new future meeting/activity,
+- referred to an existing event,
+- clarified or changed an existing event,
+- told somebody about an existing event,
+- invited somebody to an existing event,
+- or established that somebody will or will not attend an existing event.
 
-EVENT CREATION THRESHOLD — VERY IMPORTANT:
-Create a NEW event only when the conversation contains an explicit intention for people to meet, gather, visit each other, do an activity together, or attend something together in the future.
-The conversation must contain evidence that the shared future interaction itself was proposed and accepted or mutually intended.
+If none of those happened, return empty add/update arrays.
 
-Do NOT infer an event merely because:
-- the NPCs are discussing an interesting topic,
-- they mention a place they like or plan to visit individually,
-- one NPC says they enjoy talking with the other,
-- they mention a future activity without inviting the other person,
-- the topic could naturally be continued later,
-- it would simply make sense for them to meet again.
+Do NOT create an event merely because:
+- the speakers discussed an interesting topic,
+- they mentioned a place they like,
+- one person said they may go somewhere individually,
+- they enjoyed the conversation,
+- or continuing the topic later would make sense.
 
-Never invent a catch-up, continuation discussion, or future visit unless the NPCs themselves expressed an intention to do something together.
+A NEW event requires explicit shared future intent. There must be evidence that the people actually intend to meet, gather, visit, attend, or do something together.
+The event may still be created as PENDING because date, hour, or place is unresolved.
 
-A future meeting can still count even when date, hour, or place are missing. The important requirement is explicit shared future intent, not complete logistics.
-Mutual intent does not require formal words like 'meet' or 'appointment'. A proposed shared activity plus clear acceptance is enough.
-
-Examples that ARE events:
+Examples that ARE enough for a new event:
 - 'We should meet again sometime.' / 'I'd like that.'
 - 'Maybe I could photograph your woodworking projects someday.' / 'I'd love that.'
 - 'Want to come by my shop this weekend?' / 'Sure.'
@@ -617,35 +632,136 @@ Examples that are NOT events:
 - 'I like Maria's cafe.' / 'Me too.'
 - 'I'm going to Maria's cafe later.' / 'Their pastries are great.'
 - 'I'd love to hear more about your work.' / 'Thanks!'
-- A normal conversation about books, coffee, work, hobbies, or another topic, even if continuing it later would make sense.
+- Normal discussion of books, work, food, hobbies, or places.
 
-When uncertain whether an actual future shared interaction was intended, prefer NOT creating a new event.
+When uncertain whether a future shared interaction was actually intended, prefer NO new event.
 
-- Missing fields must be JSON null. Never invent them.
-- If a relative date is actually specified (for example 'tomorrow' or 'next Friday'), resolve it to an exact yyyy-MM-dd date using the supplied conversation timestamp.
-- hour is an integer from 0 to 23 and represents HH:00. If no whole-hour time was agreed, use null.
-- placeId must be one of the provided place IDs exactly. If no valid place was agreed, use null.
-- For a PRIVATE event, isPublic=false and attendees must contain every named NPC expected to attend.
-- For a PUBLIC event, isPublic=true and attendees must be an empty array; public means every NPC is invited.
-- Use the known NPC names and the two conversation participants; identifying the participants of their own agreed plan is not invention.
-- The description must summarize the FUTURE activity or meeting that was actually proposed. Do not simply summarize the CURRENT conversation topic.
-- If an existing pending event gets missing details clarified, UPDATE that event rather than adding another one.
-- If an existing event is rescheduled or otherwise changed, UPDATE it instead of adding a duplicate.
-- If an existing event is explicitly cancelled, put its eventId in cancel.
-- Do not modify events unrelated to the current conversation.
+STEP 2 — IS THIS A NEW EVENT OR AN EXISTING ONE?
+Before adding anything, compare the conversation with the existing events supplied below.
 
-For add/update, return the FULL current state of the event. Known fields must be preserved; unresolved fields must be null.
-The program itself decides whether the resulting event is pending or planned.
+If the speakers are talking about, explaining, inviting someone to, joining, declining, clarifying, or changing an EXISTING event, UPDATE that event using its existing eventId.
+Do not create a second event just because a new person learned about or joined an existing one.
+
+Event identity is based on the PURPOSE of the future occurrence: what is actually supposed to happen.
+Different wording does NOT create a different event. ""the winter gathering"", ""the village event"", and ""the potluck"" may refer to the same event if the conversation shows they are the same future occurrence.
+
+Strong evidence that the conversation refers to an existing event includes explicit backward references such as:
+- ""the event we talked about before""
+- ""that village gathering""
+- ""our plan from the other day""
+- ""the sports day""
+When such wording appears and there is a compatible existing event, strongly prefer UPDATE over ADD.
+
+A separate planning meeting about another event is a DIFFERENT event only if the NPCs actually arrange a separate future meeting/activity whose purpose is planning that other event.
+Example:
+- Existing event: ""Daniel hosts a winter village gathering.""
+- Later conversation: ""About that village event we discussed, January 20 at Town Hall would work."" -> UPDATE the existing gathering.
+- Later conversation: ""Let's meet Friday at the cafe to plan the winter gathering."" -> ADD a separate planning meeting whose purpose is planning the gathering.
+
+Do not create a separate event merely because the current conversation is discussing or refining an existing event.
+Use purpose and conversational reference, not exact wording, to decide whether two mentions refer to the same occurrence.
+
+STEP 3 — ASSIGN PEOPLE PRECISELY.
+
+- organizers:
+  NPCs clearly hosting, creating, coordinating, or taking responsibility for the event.
+  Do not make every participant an organizer.
+
+- attendees:
+  NPCs who are clearly confirmed/expected to PARTICIPATE in the event.
+  An invitation alone is NOT enough.
+  Add a non-organizer only when they clearly accept or confirm participation, for example:
+  'I'll be there', 'I'd love to come', 'That works for me', 'See you then', or another clear acceptance in context.
+  Merely hearing about the event, saying 'sounds fun', 'great idea', or showing enthusiasm is NOT attendance.
+  If someone explicitly refuses or says they will not attend, keep them out of attendees.
+  Every organizer must also appear in attendees.
+
+- knownBy:
+  NPCs who clearly know that the event exists.
+  If an event is actually explained or mentioned to a previously uninformed conversation partner, add that person to knownBy even if they are not invited, do not accept, or explicitly refuse.
+  Do not add NPCs who have not actually been told about the event.
+  Every attendee must also appear in knownBy.
+
+The intended invariant is:
+organizers ⊆ attendees ⊆ knownBy
+
+STEP 4 — ASSIGN LOGISTICS VERY CONSERVATIVELY.
+Do NOT guess or complete missing logistics. A field may remain null.
+
+For a NEW event, a date, hour, or place is confirmed only if a concrete value was PROPOSED and then ACCEPTED/CONFIRMED by the other party in context.
+The confirmation does not need to repeat the value word-for-word; phrases such as 'that works for me', 'sounds good', or 'see you there' can confirm the immediately preceding proposal.
+
+For an EXISTING event:
+- Preserve already-confirmed date/hour/place values unless the conversation clearly changes them.
+- A NEW replacement value should only overwrite an existing value if the replacement was proposed and mutually confirmed.
+- Merely suggesting an alternative does not change the stored value.
+
+- date:
+  Set only when the conversation mutually confirms ONE EXACT DAY.
+  Exact-day references may be explicit dates or resolvable relative references such as 'tomorrow', 'next Tuesday', 'this Saturday', or 'Monday' when context makes the intended day unambiguous.
+  Resolve an accepted relative day to yyyy-MM-dd using the supplied conversation timestamp.
+  Broad ranges such as 'next week', 'sometime this weekend', or 'one day soon' are NOT exact dates and must remain null unless an exact day is later confirmed.
+  A day proposed by one speaker but not accepted by the other is NOT confirmed and must remain null.
+
+- hour:
+  Set only when the conversation mutually confirms ONE CONCRETE CLOCK HOUR.
+  Valid examples include 14:00, 2 PM, 9 in the morning, noon (=12), or midnight (=0).
+  Broad dayparts such as 'morning', 'afternoon', 'evening', 'after work', or 'later' are NOT concrete hours and must remain null.
+  Never convert 'afternoon' into 14, 'morning' into 9, etc.
+  A concrete hour proposed by one speaker but not accepted by the other is NOT confirmed.
+
+- placeId:
+  Set only when a place you can clearly match to a concrete place from the provided valid-place list was proposed AND accepted/confirmed in context.
+  The confirmation may be indirect, such as 'the cafe works for me' or 'sounds good' immediately after the cafe was proposed.
+  You may need to find the valid match for a place ID, for example ""HouseOfAmy"" can be equal to Amy saying ""Meet me at my home"".
+  A place merely mentioned during ordinary conversation is not an event location.
+  Never invent a place and never use a place outside the supplied valid IDs.
+
+Example:
+Speaker A: 'Would you be able to meet at the cafe next week?'
+Speaker B: 'The cafe next week works for me. How about Tuesday afternoon?'
+Conversation ends.
+Result:
+- placeId = Cafe, because the cafe was proposed and confirmed.
+- date = null, because Tuesday was only proposed by Speaker B and never confirmed.
+- hour = null, because 'afternoon' is not a concrete clock hour and was not confirmed anyway.
+
+STEP 5 — DESCRIPTION AND STATUS.
+
+- description:
+  One short sentence describing the concrete PURPOSE of the FUTURE occurrence: what people will actually do.
+  Write the event itself, not a person's wish, thought, uncertainty, or the fact that they are considering it.
+  Good:
+  - ""Daniel hosts a winter village gathering.""
+  - ""Amy and Tim go hiking together.""
+  - ""Daniel and Tim meet to plan the village history celebration.""
+  Avoid:
+  - ""Daniel is thinking about organizing a gathering.""
+  - ""Amy would be happy to meet Tim sometime.""
+  - ""Daniel is considering ideas for the winter event.""
+  PENDING means logistics are unresolved; the description should still state the event's purpose as clearly as the conversation allows.
+  For an existing event, preserve the same core purpose unless the conversation clearly changes what the event actually is.
+
+- status:
+  The program determines this automatically, you don't need to modify it.
+  PLANNED means date, concrete hour, place, and at least one real participant/organizer are known.
+  PENDING means a real event exists but one or more logistics are unresolved.
+
+UPDATE RULE — CRITICAL:
+For every UPDATE, return the FULL CURRENT STATE of the event after this conversation.
+Preserve all unchanged organizers, attendees, knownBy names, date, hour, place, and description from the existing event.
+Do not erase a confirmed value merely because it was not repeated in this conversation.
 
 Return exactly this JSON shape:
 {
   ""add"": [
     {
       ""date"": ""yyyy-MM-dd or null"",
-      ""hour"": 17,
-      ""isPublic"": false,
-      ""attendees"": [""NPC1"", ""NPC2""],
-      ""placeId"": ""PLACE_ID or null"",
+      ""hour"": 17 or null,
+      ""organizers"": [""Maria""],
+      ""attendees"": [""Maria"", ""Amy""],
+      ""knownBy"": [""Maria"", ""Amy""],
+      ""placeId"": ""Cafe"",
       ""description"": ""one short sentence""
     }
   ],
@@ -653,17 +769,17 @@ Return exactly this JSON shape:
     {
       ""eventId"": ""EVT-000001"",
       ""date"": ""yyyy-MM-dd or null"",
-      ""hour"": null,
-      ""isPublic"": false,
-      ""attendees"": [""NPC1"", ""NPC2""],
-      ""placeId"": null,
-      ""description"": ""one short sentence""
+      ""hour"": 13 or null,
+      ""organizers"": [""Maria""],
+      ""attendees"": [""Maria"", ""Amy""],
+      ""knownBy"": [""Maria"", ""Amy"", ""Tim""],
+      ""placeId"": ""Cafe"",
+      ""description"": ""Maria is planning a village gathering at her cafe.""
     }
-  ],
-  ""cancel"": [""EVT-000001""]
+  ]
 }
 
-Always include add, update, and cancel arrays, even when empty.";
+Always include add and update arrays, even when empty.";
 
             string user = $@"
 Conversation started at: {conversationTime:yyyy-MM-dd HH:mm dddd}
@@ -688,9 +804,11 @@ Return only the event-operation JSON.";
             string raw = await client.RequestGenericJsonAsync(
                 system,
                 user,
-                fallbackJson: @"{""add"":[],""update"":[],""cancel"":[]}",
-                maxTokens: 850
+                fallbackJson: @"{""add"":[],""update"":[]}",
+                maxTokens: 1350
             );
+
+            Debug.Log($"[EVENTS] Raw logger JSON for {session.conversationID}:\n{raw}");
 
             raw = SanitizeJson(raw);
 
@@ -710,7 +828,6 @@ Return only the event-operation JSON.";
 
             int added = 0;
             int updated = 0;
-            int cancelled = 0;
             string gameTimestamp = GetCurrentGameTimestamp();
             List<SocialEvent> snapshotToSave;
 
@@ -758,41 +875,24 @@ Return only the event-operation JSON.";
 
                     existing.date = normalized.date;
                     existing.hour = normalized.hour;
-                    existing.isPublic = normalized.isPublic;
+                    existing.organizers = normalized.organizers;
                     existing.attendees = normalized.attendees;
+                    existing.knownBy = normalized.knownBy;
                     existing.placeId = normalized.placeId;
                     existing.description = normalized.description;
                     existing.status = IsComplete(existing) ? "planned" : "pending";
                     existing.lastUpdatedGameTimestamp = gameTimestamp;
                     existing.sourceConversationId = session.conversationID;
-                    existing.dateTime = null;
                     updated++;
-                }
-
-                foreach (string eventId in delta.cancel ?? new List<string>())
-                {
-                    if (string.IsNullOrWhiteSpace(eventId))
-                        continue;
-
-                    var existing = events.FirstOrDefault(e =>
-                        string.Equals(e.eventId, eventId.Trim(), StringComparison.OrdinalIgnoreCase));
-
-                    if (existing == null || IsCancelled(existing))
-                        continue;
-
-                    existing.status = "cancelled";
-                    existing.lastUpdatedGameTimestamp = gameTimestamp;
-                    existing.sourceConversationId = session.conversationID;
-                    cancelled++;
                 }
 
                 snapshotToSave = events.Select(CloneEvent).ToList();
             }
 
-            if (added > 0 || updated > 0 || cancelled > 0)
+            if (added > 0 || updated > 0)
             {
                 SaveEventsSnapshot(snapshotToSave);
-                Debug.Log($"[EVENTS] {session.conversationID}: added={added}, updated={updated}, cancelled={cancelled}. Registry: {eventFilePath}");
+                Debug.Log($"[EVENTS] {session.conversationID}: added={added}, updated={updated}. Registry: {eventFilePath}");
             }
         }
         catch (Exception ex)
@@ -809,12 +909,13 @@ Return only the event-operation JSON.";
     {
         string date = string.IsNullOrWhiteSpace(e?.date) ? "null" : e.date;
         string hour = e?.hour.HasValue == true ? e.hour.Value.ToString("00") + ":00" : "null";
-        string people = e?.isPublic == true
-            ? "PUBLIC"
-            : string.Join(", ", e?.attendees ?? new List<string>());
         string place = string.IsNullOrWhiteSpace(e?.placeId) ? "null" : e.placeId;
+        string organizers = string.Join(", ", e?.organizers ?? new List<string>());
+        string attendees = string.Join(", ", e?.attendees ?? new List<string>());
+        string knownBy = string.Join(", ", e?.knownBy ?? new List<string>());
 
-        return $"{e?.eventId ?? "(new)"} | status={e?.status ?? "pending"} | date={date} | hour={hour} | people={people} | place={place} | {e?.description}";
+        return $"{e?.eventId ?? "(new)"} | status={e?.status ?? "pending"} | date={date} | hour={hour} | place={place} | " +
+               $"organizers=[{organizers}] | attendees=[{attendees}] | knownBy=[{knownBy}] | {e?.description}";
     }
 
     private static bool TryNormalizeProposal(
@@ -876,33 +977,29 @@ Return only the event-operation JSON.";
             return false;
         }
 
-        var attendees = (p.attendees ?? new List<string>())
-            .Where(a => !string.IsNullOrWhiteSpace(a))
-            .Select(a => a.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var organizers = NormalizeNameList(p.organizers);
+        var attendees = NormalizeNameList(p.attendees);
+        var knownBy = NormalizeNameList(p.knownBy);
 
-        if (p.isPublic)
+        foreach (string name in organizers.Concat(attendees).Concat(knownBy).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            attendees.Clear();
-        }
-        else
-        {
-            if (attendees.Count < 2)
+            if (!validNpcNames.Any(v => string.Equals(v, name, StringComparison.OrdinalIgnoreCase)))
             {
-                reason = "private event needs at least two attendees";
+                reason = $"unknown NPC '{name}'";
                 return false;
             }
-
-            foreach (string attendee in attendees)
-            {
-                if (!validNpcNames.Any(v => string.Equals(v, attendee, StringComparison.OrdinalIgnoreCase)))
-                {
-                    reason = $"unknown attendee '{attendee}'";
-                    return false;
-                }
-            }
         }
+
+        if (organizers.Count == 0 && attendees.Count == 0)
+        {
+            reason = "event needs at least one organizer or attendee";
+            return false;
+        }
+
+        // Current-schema invariant:
+        // organizers are participants, and every participant necessarily knows about the event.
+        attendees = UnionNames(attendees, organizers);
+        knownBy = UnionNames(knownBy, attendees);
 
         if (string.IsNullOrWhiteSpace(p.description))
         {
@@ -914,8 +1011,9 @@ Return only the event-operation JSON.";
         {
             date = normalizedDate,
             hour = p.hour,
-            isPublic = p.isPublic,
+            organizers = organizers,
             attendees = attendees,
+            knownBy = knownBy,
             placeId = normalizedPlace,
             description = p.description.Trim(),
             status = "pending"
@@ -931,14 +1029,13 @@ Return only the event-operation JSON.";
 
         return all.Any(e =>
         {
-            if (e == null || IsCancelled(e))
+            if (e == null)
                 return false;
 
-            if (e.isPublic != candidate.isPublic)
-                return false;
-
-            bool samePeople = e.isPublic || SameAttendeeSet(e.attendees, candidate.attendees);
-            if (!samePeople)
+            bool sharesPeople = UnionNames(e.organizers, e.attendees, e.knownBy)
+                .Any(x => UnionNames(candidate.organizers, candidate.attendees, candidate.knownBy)
+                    .Any(y => string.Equals(x, y, StringComparison.OrdinalIgnoreCase)));
+            if (!sharesPeople)
                 return false;
 
             bool sameDate = string.Equals(e.date ?? "", candidate.date ?? "", StringComparison.OrdinalIgnoreCase);
@@ -948,19 +1045,11 @@ Return only the event-operation JSON.";
             if (sameDate && sameHour && samePlace)
                 return true;
 
-            // If no logistics have been agreed yet, also prevent duplicate copies of the same intent.
             bool bothVeryIncomplete = string.IsNullOrWhiteSpace(e.date) && !e.hour.HasValue && string.IsNullOrWhiteSpace(e.placeId) &&
                                       string.IsNullOrWhiteSpace(candidate.date) && !candidate.hour.HasValue && string.IsNullOrWhiteSpace(candidate.placeId);
             return bothVeryIncomplete && string.Equals(e.description?.Trim(), candidate.description?.Trim(), StringComparison.OrdinalIgnoreCase);
         });
     }
 
-    private static bool SameAttendeeSet(List<string> a, List<string> b)
-    {
-        a ??= new List<string>();
-        b ??= new List<string>();
 
-        return a.Count == b.Count &&
-               a.All(x => b.Any(y => string.Equals(x, y, StringComparison.OrdinalIgnoreCase)));
-    }
 }
