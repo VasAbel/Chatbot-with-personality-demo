@@ -240,16 +240,25 @@ public class ConsoleChatbot : MonoBehaviour
 
                 try
                 {
+                    if (session is UserConversationSession userSession)
+                        userSession.AddUserLine(userInput);
+
                     session.UpdateMessageHistory(userInput);
 
                     string response = await client.SendChatMessageAsync(userInput);
                     messageInputField.gameObject.SetActive(true);
                     messageInputField.GetComponentInChildren<TMP_Text>().SetText(response);
 
-                    string logEntry = $"Partner: {response}";
+                    NPC userNpc = (session as UserConversationSession)?.GetNPC();
+                    string npcLabel = userNpc != null ? userNpc.getName() : "NPC";
+                    string logEntry = $"{npcLabel}: {response}";
 
                     Debug.Log(logEntry);
+                    File.AppendAllText(logFilePath, $"User: {userInput}\n");
                     File.AppendAllText(logFilePath, logEntry + "\n");
+
+                    if (session is UserConversationSession userSessionAfter)
+                        userSessionAfter.AddNpcLine(response);
 
                     session.UpdateMessageHistory(response);
                 }
@@ -318,6 +327,10 @@ public class ConsoleChatbot : MonoBehaviour
             {
                 _ = UpdatePostConversationThenRelease(npcSession);
             }
+            else if (session is UserConversationSession userSession)
+            {
+                _ = UpdateUserPostConversationThenRelease(userSession);
+            }
 
             return true;
         }
@@ -373,6 +386,52 @@ public class ConsoleChatbot : MonoBehaviour
         }
     }
 
+    private async Task UpdateUserPostConversationThenRelease(UserConversationSession session)
+    {
+        NPC npc = session.GetNPC();
+
+        try
+        {
+            if (ShouldSkipMemoryUpdate(session))
+            {
+                Debug.LogWarning(
+                    $"[MEMORY-SKIP] Skipping user-conversation post-processing for {session.conversationID}: " +
+                    $"conversation transcript is empty or too short."
+                );
+                return;
+            }
+
+            if (SocialEventManager.Instance != null)
+            {
+                await SocialEventManager.Instance.UpdateEventsFromConversationAsync(session, client);
+            }
+            else
+            {
+                Debug.LogWarning("[EVENTS] SocialEventManager is missing, so no global event update was performed.");
+            }
+
+            await UpdateMemoryForSession(session);
+        }
+        finally
+        {
+            npc.isConversationBlocked = false;
+            npc.isTalkingToUser = false;
+            Debug.Log($"Released {npc.getName()} after user-conversation post-processing.");
+        }
+    }
+
+    private bool ShouldSkipMemoryUpdate(UserConversationSession session)
+    {
+        if (session == null)
+            return true;
+
+        var transcript = session.GetSpokenTranscript();
+        if (transcript == null || transcript.Count < 2)
+            return true;
+
+        return !transcript.Any(line => !string.IsNullOrWhiteSpace(line));
+    }
+
     private bool ShouldSkipMemoryUpdate(NPCConversationSession session)
     {
         if (session == null)
@@ -422,129 +481,209 @@ public class ConsoleChatbot : MonoBehaviour
         await conversationSemaphore.WaitAsync();
         try
         {
-            var npc1 = ((NPCConversationSession)session).GetNPC(0);
-        var npc2 = ((NPCConversationSession)session).GetNPC(1);
+            bool isUserConversation = session is UserConversationSession;
 
-        bool npc1KnewNpc2Before = KnowsPartner(npc1, npc2);
-        bool npc2KnewNpc1Before = KnowsPartner(npc2, npc1);
+            NPC npc1;
+            NPC npc2 = null;
+            string fullConversation;
 
-        var npcSession = (NPCConversationSession)session;
-        string fullConversation = string.Join("\n", npcSession.GetSpokenTranscript());
+            if (session is NPCConversationSession npcSession)
+            {
+                npc1 = npcSession.GetNPC(0);
+                npc2 = npcSession.GetNPC(1);
+                fullConversation = string.Join("\n", npcSession.GetSpokenTranscript());
+            }
+            else if (session is UserConversationSession userSession)
+            {
+                npc1 = userSession.GetNPC();
+                fullConversation = string.Join("\n", userSession.GetSpokenTranscript());
+            }
+            else
+            {
+                Debug.LogWarning($"Memory update does not support session type {session.GetType().Name}.");
+                return;
+            }
 
-        string baseInstr = @"
-You are a memory updater for a role-playing simulation.
-Reply with VALID JSON ONLY (no markdown, no commentary).
-Use exactly this schema (types matter):
+            string baseInstr = @"
+    You are a memory updater for a role-playing simulation.
+    Reply with VALID JSON ONLY (no markdown, no commentary).
+    Use exactly this schema (types matter):
 
-{
-  ""core"": {
-    ""add"":    [""...""],
-    ""update"": [{ ""index"": 0, ""new"": ""..."" }],
-    ""remove"": [0, 1]
-  },
-  ""social"": {
-    ""NPC_NAME"": {
-      ""add"":    [""...""],
-      ""update"": [{ ""index"": 0, ""new"": ""..."" }],
-      ""remove"": [0, 1]
+    {
+      ""core"": {
+        ""add"":    [""...""],
+        ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+        ""remove"": [0, 1]
+      },
+      ""social"": {
+        ""NPC_NAME"": {
+          ""add"":    [""...""],
+          ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+          ""remove"": [0, 1]
+        }
+      },
+      ""thoughts"": {
+        ""add"":       [""...""],
+        ""update"": [{ ""index"": 0, ""new"": ""..."" }],
+        ""remove"":      [0, 1]
+      }
     }
-  },
-  ""thoughts"": {
-    ""add"":       [""...""],
-    ""update"": [{ ""index"": 0, ""new"": ""..."" }],
-    ""remove"":      [0, 1]
-  }
-}
 
-SECTION DEFINITIONS:
+    SECTION DEFINITIONS:
 
-- core (weeks/months/years/permanent): stable, long-term facts about THIS NPC (job, values, deep preferences, recurring habits, looks).
-  Things that are true even months or years later.
-  Never put information about other people into core.
-  Never put temporary plans, current projects or transient thoughts here.
+    - core (weeks/months/years/permanent): stable, long-term facts about THIS NPC (job, values, deep preferences, recurring habits, looks).
+      Things that are true even months or years later.
+      Never put information about other people into core.
+      Never put temporary plans, current projects or transient thoughts here.
 
-- social:
-  What THIS NPC believes about OTHER NPCs, their traits, habits, preferences, roles, and changes in their life.
-  Keys in ""social"" must be other NPC names only (never the self name).
+    - social:
+      What THIS NPC believes about OTHER NPCs, their traits, habits, preferences, roles, and changes in their life.
+      Keys in ""social"" must be other NPC names only (never the self name).
 
-- thoughts:
-  TYPICAL WORDS: today/this week/currently/trying/planning/worried/excited
-  Short-term or **evolving ideas/plans** of THIS NPC: current projects, considering/planning/might/soon
-  Volatile thoughts that can appear, change, or disappear quickly.
-  Concrete social-event logistics are handled by a separate global event registry.
-  Do NOT store exact event date/time/place/attendee details merely so the NPC remembers an appointment.
-  You MAY keep a brief personal thought about the event's purpose, anticipation, worry, or motivation if that matters independently of the logistics.
+    - thoughts:
+      TYPICAL WORDS: today/this week/currently/trying/planning/worried/excited
+      Short-term or **evolving ideas/plans** of THIS NPC: current projects, considering/planning/might/soon
+      Volatile thoughts that can appear, change, or disappear quickly.
+      Concrete social-event logistics are handled by a separate global event registry.
+      Do NOT store exact event date/time/place/attendee details merely so the NPC remembers an appointment.
+      You MAY keep a brief personal thought about the event's purpose, anticipation, worry, or motivation if that matters independently of the logistics.
 
-CLASSIFY WITH THESE EXAMPLES:
-- core (about SELF): ""Teaches history."" ""Values craftsmanship."" ""Often hikes on weekends."" ""Believes healthy food is important to be happy.""
-- thoughts: ""Currently building a table."" ""Considering collaborating with Gabriel soon."" ""Thinking about hosting a party."" ""Looking forward to apologizing to Tim.""
-- social (about OTHERS): ""Gabriel teaches history and loves storytelling."" ""John is currently planning to throw a party.""
+    CLASSIFY WITH THESE EXAMPLES:
+    - core (about SELF): ""Teaches history."" ""Values craftsmanship."" ""Often hikes on weekends."" ""Believes healthy food is important to be happy.""
+    - thoughts: ""Currently building a table."" ""Considering collaborating with Gabriel soon."" ""Thinking about hosting a party."" ""Looking forward to apologizing to Tim.""
+    - social (about OTHERS): ""Gabriel teaches history and loves storytelling."" ""John is currently planning to throw a party.""
 
-OPERATIONS:
--add: Put the sentence here if it is a COMPLETELY NEW INFORMATION that IS NOT PART OF THE MEMORY YET IN ANY FORM. If there already is a differently phrased sentence with the SAME MEANING, DO NOT add the new one. If there already is a SIMILAR sentence with LESS INFORMATION, use UPDATE instead of add.
-Example: ""core"": {
-    ""add"":    [""Her favourite animals are horses""]
-    ...
+    OPERATIONS:
+    -add: Put the sentence here if it is a COMPLETELY NEW INFORMATION that IS NOT PART OF THE MEMORY YET IN ANY FORM. If there already is a differently phrased sentence with the SAME MEANING, DO NOT add the new one. If there already is a SIMILAR sentence with LESS INFORMATION, use UPDATE instead of add.
+    Example: ""core"": {
+        ""add"":    [""Her favourite animals are horses""]
+        ...
 
--update: Put the index of the old sentence and the new sentence here if there is an old one WITH A SIMILAR MEANING BUT LESS/CONTRADICTED INFORMATION. If a sentence has no relevance anymore, DO NOT UPDATE IT, REMOVE INSTEAD.
-        IMPORTANT: When updating an item, do not lose any context from the previous version, because this is the *single source of truth* for the NPC. Example: ""XY is making a chair for a restaurant"" -> ""XY has almost finished the chair, *that he was making for a restaurant*"". Without the last part, the LLM reading the memory wouldn't understand what chair the memory talks about, since that information would have been lost after udate.
-Example: ""core"": {
-    ...
-    ""update"": [{ ""index"": 0, ""new"": ""Her favourite animals are black horses"" }] --> eg. original sentence on idx 0 was ""Her favourite animals are horses""
+    -update: Put the index of the old sentence and the new sentence here if there is an old one WITH A SIMILAR MEANING BUT LESS/CONTRADICTED INFORMATION. If a sentence has no relevance anymore, DO NOT UPDATE IT, REMOVE INSTEAD.
+            IMPORTANT: When updating an item, do not lose any context from the previous version, because this is the *single source of truth* for the NPC. Example: ""XY is making a chair for a restaurant"" -> ""XY has almost finished the chair, *that he was making for a restaurant*"". Without the last part, the LLM reading the memory wouldn't understand what chair the memory talks about, since that information would have been lost after udate.
+    Example: ""core"": {
+        ...
+        ""update"": [{ ""index"": 0, ""new"": ""Her favourite animals are black horses"" }] --> eg. original sentence on idx 0 was ""Her favourite animals are horses""
 
--remove: Put the index of the sentence here if it became CLEARLY CONTRADICTED, ABANDONED OR OUTDATED AND NOT UPDATED. If you see something that was CLEARLY PLACED IN THE WRONG SECTION, put it in remove.
-    CONTRADICTED: The NPC clearly states the opposite of an information or states changing their mind about it. (SELF about core and thoughts or OTHER NPC about something in Social) (Example: ""XY loves dogs"" -> Conversation: ""XY: I don't like dogs anymore"")
-    ABANDONED: An information about a process that is now finished and not worth to remember (Example: ""XY is making dinner"" -> Conversation: ""I am done with making dinner)
-    OUTDATED: An information that was once new and worth to memorize but is not interesting in the long term. (Example: ""XY has finished the job he was working on for a long time"" -> The topic is now outdated and not contributing to the personality of the NPC anymore)
-    Watch out for these 3 types of information carefully, decide with a brain of a human (what are things that are not building personality and were just remembered as a temporary information once but are not important in the long run)
-Example: ""social"": {
-    ""XY"": {
-      ...
-      ""remove"": [0]
+    -remove: Put the index of the sentence here if it became CLEARLY CONTRADICTED, ABANDONED OR OUTDATED AND NOT UPDATED. If you see something that was CLEARLY PLACED IN THE WRONG SECTION, put it in remove.
+        CONTRADICTED: The NPC clearly states the opposite of an information or states changing their mind about it. (SELF about core and thoughts or OTHER NPC about something in Social) (Example: ""XY loves dogs"" -> Conversation: ""XY: I don't like dogs anymore"")
+        ABANDONED: An information about a process that is now finished and not worth to remember (Example: ""XY is making dinner"" -> Conversation: ""I am done with making dinner)
+        OUTDATED: An information that was once new and worth to memorize but is not interesting in the long term. (Example: ""XY has finished the job he was working on for a long time"" -> The topic is now outdated and not contributing to the personality of the NPC anymore)
+        Watch out for these 3 types of information carefully, decide with a brain of a human (what are things that are not building personality and were just remembered as a temporary information once but are not important in the long run)
+    Example: ""social"": {
+        ""XY"": {
+          ...
+          ""remove"": [0]
 
-CONSISTENCY (CRITICAL):
-Before adding a new sentence, always double check if there is an existing sentence with the same topic. Even if the sentence is not exactly the same, has less or additional information, but HAS THE SAME BASE STATEMENT, PREFER UPDATING it instead of adding a new sentence with overlapping parts.
-If you see DUPLICATES in meaning or VERY SIMILAR TOPICS among existing sentences, resolve them:
+    CONSISTENCY (CRITICAL):
+    Before adding a new sentence, always double check if there is an existing sentence with the same topic. Even if the sentence is not exactly the same, has less or additional information, but HAS THE SAME BASE STATEMENT, PREFER UPDATING it instead of adding a new sentence with overlapping parts.
+    If you see DUPLICATES in meaning or VERY SIMILAR TOPICS among existing sentences, resolve them:
 
-- If two sentences express the SAME INFORMATION → REMOVE one of them.
-- If one sentence contains ALL the information of another plus MORE → REMOVE the less informative one.
-- If two sentences contain PARTIAL information that complements each other → MERGE them:
-    - UPDATE one sentence with the combined information.
-    - REMOVE the other sentence.
+    - If two sentences express the SAME INFORMATION → REMOVE one of them.
+    - If one sentence contains ALL the information of another plus MORE → REMOVE the less informative one.
+    - If two sentences contain PARTIAL information that complements each other → MERGE them:
+        - UPDATE one sentence with the combined information.
+        - REMOVE the other sentence.
 
-Always operate using the correct indices from PREVIOUS MEMORY. Prefer keeping the sentence that is clearer or more specific
+    Always operate using the correct indices from PREVIOUS MEMORY. Prefer keeping the sentence that is clearer or more specific
 
-*Never place the same index in both remove and update.*
+    *Never place the same index in both remove and update.*
 
-INDEXING (CRITICAL):
-- PREVIOUS CORE / SOCIAL / THOUGHTS will be given as indexed lists (0..N-1).
+    INDEXING (CRITICAL):
+    - PREVIOUS CORE / SOCIAL / THOUGHTS will be given as indexed lists (0..N-1).
 
-GENERAL RULES:
-- Keep strings concise (< 120 chars).
-- Avoid near-duplicates; do not restate the same idea with slightly different wording.
-- ""core"", ""social"", and ""thoughts"" must always be JSON OBJECTS, not arrays.
-- If there are no changes for a section, omit that section completely
+    GENERAL RULES:
+    - Keep strings concise (< 120 chars).
+    - Avoid near-duplicates; do not restate the same idea with slightly different wording.
+    - ""core"", ""social"", and ""thoughts"" must always be JSON OBJECTS, not arrays.
+    - If there are no changes for a section, omit that section completely
+    ";
+
+
+            string memorySystemPrompt = baseInstr;
+            if (isUserConversation)
+            {
+                memorySystemPrompt += @"
+
+USER AUTHORITY MODE:
+- The speaker labeled User is the authoritative controller of the simulation, not an ordinary villager.
+- Explicit user statements/instructions intended to set or change this NPC's state are binding, even when they contradict previous memory or what the NPC previously preferred.
+- Infer the semantic change, not just exact wording: job, stable trait, preference, belief, intention, project, or removal of an old fact can all be changed.
+- Make the FINAL memory consistent with the requested state. Use ADD for genuinely new topics, UPDATE for changed versions of an existing topic, and REMOVE for contradicted/obsolete items.
+- If several old items contradict the newly established state, update/remove all of them rather than leaving inconsistent leftovers.
+- It is possible that a user request only wants to remove information; no replacement has to be invented.
+- The NPC's spoken acknowledgement does not need to restate every detail. The user's explicit authoritative instruction itself is sufficient evidence for the change.
+- NEVER create social memory for User or Player.
+- The User may set what this NPC believes about another real NPC; that belongs in that NPC's social entry.
+- The User may set this NPC's core traits (job, hobby, etc.); that belongs in that NPC's core entry.
+- The User may set what this NPC is currently thinking about; that belongs in that NPC's thoughts entry.
+- Exact social-event logistics belong to the global event registry, but non-logistical intentions/to-dos caused by the instruction can remain in thoughts.
 ";
+            }
+
+            string PromptForNpcPair(NPC self, NPC partner) => $@"
+    Self: {self.getName()}
+    Other NPC in this conversation: {partner.getName()}
+
+    Previous CORE (indexed, about {self.getName()} only):
+    {ToIndexedLines(self.memory.corePersonality
+        .Split('\n')
+        .Select(l => l.Trim())
+        .Where(l => !string.IsNullOrWhiteSpace(l)))}
+
+    Previous SOCIAL (indexed per NPC, what {self.getName()} believes about others):
+    {string.Join("\n\n", self.memory.socialByNpc.Select(kv =>
+    $@"[{kv.Key}]
+    {ToIndexedLines((kv.Value ?? "")
+        .Split('\n')
+        .Select(l => l.Trim())
+        .Where(l => !string.IsNullOrWhiteSpace(l)))}"))}
+
+    Previous THOUGHTS (indexed, short-term plans/ideas of {self.getName()}):
+    {(self.memory.currentThoughts == null || self.memory.currentThoughts.Count == 0
+    ? "(none)"
+    : string.Join("\n", self.memory.currentThoughts
+        .OrderByDescending(t => t.salience)
+        .ThenByDescending(t => t.confidence)
+        .Select((t,i) =>
+        $"{i}: [{(string.IsNullOrWhiteSpace(t.gameTimestamp) ? "unknown time" : t.gameTimestamp)}] {t.text.Trim()} " +
+        $"(sal {Mathf.RoundToInt(t.salience*100)}%, conf {Mathf.RoundToInt(t.confidence*100)}%)")))}
+
+    CURRENT Conversation (latest session, including speaker names):
+    {fullConversation}
+
+    Task:
+    - Decide what to add, update, or remove in core, social, and thoughts.
+    - Only consider information that was actually revealed or implied in the CURRENT conversation.
+    - Do not duplicate concrete social-event logistics (exact date/time/place/attendees); those are stored separately in the global event registry.
+    - A short personal thought about why the event matters may still be stored if useful.
+    - Remember:
+      - core & thoughts are ONLY about {self.getName()},
+      - social is ONLY about others (never {self.getName()}).
+    - Use the JSON schema exactly as described above.
+
+    Return ONLY the JSON object.";
 
 
-
-        string promptFor(NPC self, NPC partner) => $@"
+            string PromptForUser(NPC self) => $@"
 Self: {self.getName()}
-Other NPC in this conversation: {partner.getName()}
+Conversation partner: User (authoritative controller; not a villager)
 
 Previous CORE (indexed, about {self.getName()} only):
-{ToIndexedLines(self.memory.corePersonality
+{ToIndexedLines((self.memory.corePersonality ?? "")
     .Split('\n')
     .Select(l => l.Trim())
     .Where(l => !string.IsNullOrWhiteSpace(l)))}
 
 Previous SOCIAL (indexed per NPC, what {self.getName()} believes about others):
-{string.Join("\n\n", self.memory.socialByNpc.Select(kv =>
+{(self.memory.socialByNpc == null || self.memory.socialByNpc.Count == 0
+? "(none)"
+: string.Join("\n\n", self.memory.socialByNpc.Select(kv =>
 $@"[{kv.Key}]
 {ToIndexedLines((kv.Value ?? "")
     .Split('\n')
     .Select(l => l.Trim())
-    .Where(l => !string.IsNullOrWhiteSpace(l)))}"))}
+    .Where(l => !string.IsNullOrWhiteSpace(l)))}")))}
 
 Previous THOUGHTS (indexed, short-term plans/ideas of {self.getName()}):
 {(self.memory.currentThoughts == null || self.memory.currentThoughts.Count == 0
@@ -560,65 +699,85 @@ CURRENT Conversation (latest session, including speaker names):
 {fullConversation}
 
 Task:
-- Decide what to add, update, or remove in core, social, and thoughts.
-- Only consider information that was actually revealed or implied in the CURRENT conversation.
+- Decide what to add, update, or remove in core, social, and thoughts using the SAME memory rules as ordinary NPC conversations.
+- The User is authoritative: explicit instructions or state changes from User must be reflected even if they contradict old memory.
+- Resolve contradictions: update/remove old entries so the final state is consistent.
+- It is valid to remove an old entry without adding a replacement if the User only revokes something.
+- NEVER create a social entry for User/Player.
+- If User changes what {self.getName()} believes about another real NPC, use that NPC's social entry.
 - Do not duplicate concrete social-event logistics (exact date/time/place/attendees); those are stored separately in the global event registry.
-- A short personal thought about why the event matters may still be stored if useful.
-- Remember:
-  - core & thoughts are ONLY about {self.getName()},
-  - social is ONLY about others (never {self.getName()}).
+- Keep useful non-logistical event intentions in thoughts when needed, e.g. wanting to invite villagers, recruit helpers, prepare something, or follow up later.
+- core & thoughts are ONLY about {self.getName()}.
 - Use the JSON schema exactly as described above.
 
 Return ONLY the JSON object.";
 
-        int pairCount = NextPairCount(npc1.getName(), npc2.getName());
-        string convId = session.conversationID;
 
-        // Snapshot BEFORE
-        var npc1BeforeMem = CloneMemory(npc1.memory);
-        var npc2BeforeMem = CloneMemory(npc2.memory);
+            string convId = session.conversationID;
 
-        string json1, json2;
+            if (isUserConversation)
+            {
+                int pairCount = NextPairCount(npc1.getName(), "User");
+                var before = CloneMemory(npc1.memory);
 
-        if (client is GptClient gpt)
-        {
-            json1 = await gpt.RequestJsonAsync(baseInstr, promptFor(npc1, npc2), 700);
-            json2 = await gpt.RequestJsonAsync(baseInstr, promptFor(npc2, npc1), 700);
-        }
-        else
-        {
-            // Fallback: old text path (system+user concatenated)
-            json1 = await client.SendChatMessageAsync(baseInstr + "\n\n" + promptFor(npc1, npc2));
-            json2 = await client.SendChatMessageAsync(baseInstr + "\n\n" + promptFor(npc2, npc1));
-        }
+                string json;
+                if (client is GptClient gpt)
+                    json = await gpt.RequestJsonAsync(memorySystemPrompt, PromptForUser(npc1), 850);
+                else
+                    json = await client.SendChatMessageAsync(memorySystemPrompt + "\n\n" + PromptForUser(npc1));
 
-        json1 = SanitizeJson(json1);
-        json2 = SanitizeJson(json2);
+                json = SanitizeJson(json);
+                json = FilterUserConversationSocialTargets(npc1, json);
 
-        LogMemoryOperationCountsFromJson(npc1, json1, convId, npc2.getName());
-        LogMemoryOperationCountsFromJson(npc2, json2, convId, npc1.getName());
+                LogMemoryOperationCountsFromJson(npc1, json, convId, "User");
+                ApplyMemoryJson(npc1, json);
+                LogMemoryDelta(npc1.getName(), "User", convId, pairCount, json, before, npc1);
+                npc1.LogMemoryToFile();
+                return;
+            }
 
-        ApplyMemoryJson(npc1, json1);
-        ApplyMemoryJson(npc2, json2);
+            bool npc1KnewNpc2Before = KnowsPartner(npc1, npc2);
+            bool npc2KnewNpc1Before = KnowsPartner(npc2, npc1);
 
-        bool npc1KnowsNpc2After = KnowsPartner(npc1, npc2);
-        bool npc2KnowsNpc1After = KnowsPartner(npc2, npc1);
+            int npcPairCount = NextPairCount(npc1.getName(), npc2.getName());
+            var npc1BeforeMem = CloneMemory(npc1.memory);
+            var npc2BeforeMem = CloneMemory(npc2.memory);
 
-        if (!npc1KnewNpc2Before && npc1KnowsNpc2After)
-        {
-            MeasurementLogger.Instance?.LogNewAcquaintance(npc1, npc2, convId);
-        }
+            string json1, json2;
+            if (client is GptClient npcGpt)
+            {
+                json1 = await npcGpt.RequestJsonAsync(baseInstr, PromptForNpcPair(npc1, npc2), 700);
+                json2 = await npcGpt.RequestJsonAsync(baseInstr, PromptForNpcPair(npc2, npc1), 700);
+            }
+            else
+            {
+                json1 = await client.SendChatMessageAsync(baseInstr + "\n\n" + PromptForNpcPair(npc1, npc2));
+                json2 = await client.SendChatMessageAsync(baseInstr + "\n\n" + PromptForNpcPair(npc2, npc1));
+            }
 
-        if (!npc2KnewNpc1Before && npc2KnowsNpc1After)
-        {
-            MeasurementLogger.Instance?.LogNewAcquaintance(npc2, npc1, convId);
-        }
+            json1 = SanitizeJson(json1);
+            json2 = SanitizeJson(json2);
 
-        LogMemoryDelta(npc1.getName(), npc2.getName(), convId, pairCount, json1, npc1BeforeMem, npc1);
-        LogMemoryDelta(npc2.getName(), npc1.getName(), convId, pairCount, json2, npc2BeforeMem, npc2);
+            LogMemoryOperationCountsFromJson(npc1, json1, convId, npc2.getName());
+            LogMemoryOperationCountsFromJson(npc2, json2, convId, npc1.getName());
 
-        npc1.LogMemoryToFile();
-        npc2.LogMemoryToFile();
+            ApplyMemoryJson(npc1, json1);
+            ApplyMemoryJson(npc2, json2);
+
+            bool npc1KnowsNpc2After = KnowsPartner(npc1, npc2);
+            bool npc2KnowsNpc1After = KnowsPartner(npc2, npc1);
+
+            if (!npc1KnewNpc2Before && npc1KnowsNpc2After)
+                MeasurementLogger.Instance?.LogNewAcquaintance(npc1, npc2, convId);
+
+            if (!npc2KnewNpc1Before && npc2KnowsNpc1After)
+                MeasurementLogger.Instance?.LogNewAcquaintance(npc2, npc1, convId);
+
+            LogMemoryDelta(npc1.getName(), npc2.getName(), convId, npcPairCount, json1, npc1BeforeMem, npc1);
+            LogMemoryDelta(npc2.getName(), npc1.getName(), convId, npcPairCount, json2, npc2BeforeMem, npc2);
+
+            npc1.LogMemoryToFile();
+            npc2.LogMemoryToFile();
         }
         catch (Exception ex)
         {
@@ -628,7 +787,38 @@ Return ONLY the JSON object.";
         {
             conversationSemaphore.Release();
         }
-        
+    }
+
+    private string FilterUserConversationSocialTargets(NPC self, string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return json;
+
+        try
+        {
+            var delta = JsonConvert.DeserializeObject<MemoryDeltaRoot>(json);
+            if (delta?.social == null)
+                return json;
+
+            var validNpcNames = new HashSet<string>(
+                FindObjectsOfType<NPC>()
+                    .Where(n => n != null && n != self)
+                    .Select(n => n.getName())
+                    .Where(n => !string.IsNullOrWhiteSpace(n)),
+                StringComparer.OrdinalIgnoreCase
+            );
+
+            delta.social = delta.social
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && validNpcNames.Contains(kv.Key.Trim()))
+                .ToDictionary(kv => kv.Key.Trim(), kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+            return JsonConvert.SerializeObject(delta);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[MEMORY] Could not filter user-conversation social targets: {ex.Message}");
+            return json;
+        }
     }
 
     private static bool KnowsPartner(NPC self, NPC partner)

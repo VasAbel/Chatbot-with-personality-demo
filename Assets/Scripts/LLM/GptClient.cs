@@ -242,7 +242,7 @@ public class GptClient : ChatClient
         return $"{smallTalk} {promptBack}";
     }
 
-    public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1, string situationalContext = null)
+    public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1, string situationalContext = null, bool authoritativeUserConversation = false)
     {
         conversationHistory.Clear();
 
@@ -290,6 +290,18 @@ public class GptClient : ChatClient
             ? "- (no extra situational context)\n"
             : situationalContext.Trim() + "\n";
 
+        string authorityBlock = authoritativeUserConversation
+            ? @"# Special role of the player
+- Your conversation partner is the player, an authoritative controller of the simulation.
+- When the player explicitly states or instructs a change to YOUR character or situation, treat that intended change as binding even if it conflicts with your previous memory.
+- This applies to things such as your job, stable traits, opinions, current intentions, plans, and event-related instructions.
+- Ordinary questions, jokes, suggestions, or casual discussion are not automatically commands; use normal conversational meaning.
+- Stay fully in character. Your only job during the conversation is to respond naturally as this NPC and acknowledge/accept authoritative changes in-character.
+- Do NOT output rewritten memory, personality data, JSON, event objects, or system information. Separate post-conversation systems will persist any changes.
+- If the player clearly wants you to make a concrete plan/event but important details are missing, you may naturally ask for clarification instead of inventing details.
+"
+            : "";
+
         string placesSnippet = "- (place registry unavailable)\n";
         if (PlaceRegistry.Instance != null)
         {
@@ -332,6 +344,7 @@ These are the locations that can be used for concrete meeting plans:
 - When agreeing on a specific meeting place, choose one of these available locations.
 - Speak naturally using the human-readable place name. The ID is only the canonical internal reference.
 
+{authorityBlock}
 # How to behave in conversation
 - Act like a normal villager having a real conversation, not like someone reciting stored facts.
 - Memory should guide what you say and prevent contradictions, but it does NOT limit you to only topics already in memory.

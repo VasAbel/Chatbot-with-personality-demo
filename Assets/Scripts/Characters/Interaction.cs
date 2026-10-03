@@ -97,7 +97,8 @@ public class Interaction : MonoBehaviour
                 npcMovement.canMove = true;
                 interactionText.SetActive(isPlayerNearby);
 
-                npcComponent.isConversationBlocked = false;
+                // The visible conversation is over, but keep the NPC conversation-blocked
+                // until event/memory post-processing has finished.
                 npcComponent.isTalkingToUser = false;
                 factory.StopUserConversation(npcComponent);
             }
