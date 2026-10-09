@@ -71,7 +71,7 @@ public class ConversationFactory : MonoBehaviour
                         $"{npc1.getName()}-{npc2.getName()}" :
                         $"{npc2.getName()}-{npc1.getName()}";
 
-        return chatbotManager.StopSession(convoID);
+        return chatbotManager.RequestNPCSessionClose(convoID);
     }
 
     private void TryStartNPCConversation(string key)

@@ -17,6 +17,8 @@ public class NPCConversationSession : ConversationSession
     private readonly string npc1EventContext;
     private readonly string npc2EventContext;
 
+    public bool IsClosingRequested { get; private set; } = false;
+
     public NPCConversationSession(NPC npc1, NPC npc2)
     {
         this.npc1 = npc1;
@@ -101,6 +103,23 @@ $@"- Current in-game time: {conversationTimestamp}
 
         client.SetSystemMessage(messageHistory, newSpeaker, npc1, situation);
     }
+
+    public void RequestGracefulClose()
+    {
+        IsClosingRequested = true;
+    }
+
+    public void PrepareForClosingSpeaker(GptClient client, bool isFinalReply)
+    {
+        NPC newSpeaker = GetCurrentSpeaker();
+
+        Debug.Log(
+            $"[LLM Closing Context] Speaker: {newSpeaker.getName()} | finalReply={isFinalReply} | using dedicated compact closing prompt"
+        );
+
+        client.SetClosingSystemMessage(messageHistory, newSpeaker, npc1, isFinalReply);
+    }
+
 
     public override bool IsUserConversation() => false;
 

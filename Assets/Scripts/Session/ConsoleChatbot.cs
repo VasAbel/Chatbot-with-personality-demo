@@ -153,6 +153,9 @@ public class ConsoleChatbot : MonoBehaviour
 
         string initialPrompt = "";
 
+        bool npcClosingSequenceStarted = false;
+        int npcClosingTurnsRemaining = 0;
+
         Debug.Log("!sess.IsUserConv");
         if (!session.IsUserConversation())
         {
@@ -183,7 +186,25 @@ public class ConsoleChatbot : MonoBehaviour
             {
                 await conversationSemaphore.WaitAsync();
 
-                session.PrepareForNextSpeaker(client);
+                if (session is NPCConversationSession npcClosingSession &&
+                    npcClosingSession.IsClosingRequested &&
+                    !npcClosingSequenceStarted)
+                {
+                    npcClosingSequenceStarted = true;
+                    npcClosingTurnsRemaining = 2;
+                    Debug.Log($"[Conversation Closing] {session.conversationID}: starting two-turn graceful closure.");
+                }
+
+                if (npcClosingSequenceStarted && session is NPCConversationSession closingNpcSession)
+                {
+                    bool isFinalReply = npcClosingTurnsRemaining == 1;
+                    closingNpcSession.PrepareForClosingSpeaker(client, isFinalReply);
+                }
+                else
+                {
+                    session.PrepareForNextSpeaker(client);
+                }
+
                 NPC currentSpeaker = session.GetCurrentSpeaker();
 
                 try
@@ -220,6 +241,16 @@ public class ConsoleChatbot : MonoBehaviour
 
                     session.UpdateMessageHistory(initialPrompt);
                     initialPrompt = response;
+
+                    if (npcClosingSequenceStarted)
+                    {
+                        npcClosingTurnsRemaining--;
+                        if (npcClosingTurnsRemaining <= 0)
+                        {
+                            session.IsActive = false;
+                            Debug.Log($"[Conversation Closing] {session.conversationID}: graceful closing turns completed.");
+                        }
+                    }
                 }
                 finally
                 {
@@ -271,6 +302,13 @@ public class ConsoleChatbot : MonoBehaviour
 
         Debug.Log("Conversation ended.");
         File.AppendAllText(logFilePath, "Conversation ended.\n");
+
+        if (session is NPCConversationSession finishedNpcSession &&
+            finishedNpcSession.IsClosingRequested)
+        {
+            activeConversations.Remove(session.conversationID);
+            await UpdatePostConversationThenRelease(finishedNpcSession);
+        }
     }
 
 
@@ -311,6 +349,25 @@ public class ConsoleChatbot : MonoBehaviour
                 return null;
             }
         }
+    }
+
+    public bool RequestNPCSessionClose(string conversationID)
+    {
+        if (!activeConversations.TryGetValue(conversationID, out var session))
+            return false;
+
+        if (!(session is NPCConversationSession npcSession))
+            return false;
+
+        if (!npcSession.IsClosingRequested)
+        {
+            npcSession.RequestGracefulClose();
+            Debug.Log($"Conversation {conversationID} received a graceful-close request.");
+        }
+
+        // Keep the session active. RunConversation will finish the current turn,
+        // generate one closing turn from each NPC, and only then start post-processing.
+        return true;
     }
 
     public bool StopSession(string conversationID)

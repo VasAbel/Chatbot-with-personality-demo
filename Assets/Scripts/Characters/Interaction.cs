@@ -172,14 +172,42 @@ public class Interaction : MonoBehaviour
         {
             NPC otherNPCComponent = other.GetComponent<NPC>();
 
-            bool stopped = factory.StopNPCConversation(npcComponent, otherNPCComponent);
-
-            if (stopped)
+            if (ShouldContinueConversationAtSameDestination(otherNPCComponent))
             {
+                Debug.Log(
+                    $"[Conversation Continue] {npcComponent.getName()} and {otherNPCComponent.getName()} " +
+                    "are scheduled for the same place this hour, so collider exit does not close their conversation."
+                );
+                return;
+            }
+
+            bool closingRequested = factory.StopNPCConversation(npcComponent, otherNPCComponent);
+
+            if (closingRequested)
+            {
+                // They may continue moving while the two final conversational turns are generated.
+                // isConversationBlocked stays true until post-conversation processing finishes.
                 npcMovement.canMove = true;
                 otherNPCComponent.GetComponent<NpcMovement>().canMove = true;
             }
         }
+    }
+
+    private bool ShouldContinueConversationAtSameDestination(NPC otherNpc)
+    {
+        if (npcComponent == null || otherNpc == null)
+            return false;
+
+        NPCGlobalTimer timer = FindObjectOfType<NPCGlobalTimer>();
+        if (timer == null)
+            return false;
+
+        int hour = timer.GetCurrentHour();
+        string myPlace = npcComponent.GetCurrentPlace(hour);
+        string otherPlace = otherNpc.GetCurrentPlace(hour);
+
+        return !string.IsNullOrWhiteSpace(myPlace) &&
+               string.Equals(myPlace, otherPlace, System.StringComparison.OrdinalIgnoreCase);
     }
 
     private GameObject FindChildByNameIncludingInactive(Transform parent, string name)

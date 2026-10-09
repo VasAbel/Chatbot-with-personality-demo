@@ -242,6 +242,102 @@ public class GptClient : ChatClient
         return $"{smallTalk} {promptBack}";
     }
 
+
+    public void SetClosingSystemMessage(
+        List<string> sessionHistory,
+        NPC currentSpeaker,
+        NPC npc1,
+        bool isFinalReply)
+    {
+        conversationHistory.Clear();
+
+        string coreBlock = string.IsNullOrWhiteSpace(currentSpeaker.memory.corePersonality)
+            ? "(no core personality stored)"
+            : currentSpeaker.memory.corePersonality.Trim();
+
+        string thoughtsSnippet;
+        if (currentSpeaker.memory.currentThoughts == null || currentSpeaker.memory.currentThoughts.Count == 0)
+        {
+            thoughtsSnippet = "- (none)";
+        }
+        else
+        {
+            thoughtsSnippet = string.Join("\n", currentSpeaker.memory.currentThoughts
+                .OrderByDescending(t => t.salience)
+                .Take(3)
+                .Select(t => "- " + t.text));
+        }
+
+        string closingRules = isFinalReply
+            ? @"TOP PRIORITY: THIS IS THE FINAL MESSAGE OF THE CONVERSATION.
+After this reply there will be NO further response from the other person.
+
+Your task:
+- Stay fully in character.
+- Respond naturally to the other person's closing thought.
+- Briefly acknowledge any important unfinished point.
+- If there is a very short question that can be answered immediately, answer it briefly.
+- If something cannot reasonably be finished now, explicitly leave it for another time.
+- Preserve already established agreements.
+- Do NOT introduce a new topic.
+- Do NOT ask a new question.
+- Do NOT create a new plan that needs another reply.
+- End naturally and definitively.
+- Keep the reply to 1-2 concise sentences.
+
+These closing rules override all ordinary conversational behavior."
+            : @"TOP PRIORITY: THE CONVERSATION MUST END NOW.
+You are giving the first of the final two messages.
+
+Your task:
+- Stay fully in character.
+- Respond naturally to what the other person just said.
+- If their last message contains a very short question, answer it briefly before closing.
+- If the current subject cannot be finished now, explicitly say that you can return to it another time.
+- Preserve already established agreements.
+- Do NOT invent missing event or plan details merely to create closure.
+- Do NOT introduce a new topic.
+- Do NOT ask a new question that requires an answer.
+- Naturally signal that you need to go / the conversation is ending.
+- Keep the reply to 1-2 concise sentences.
+
+These closing rules override all ordinary conversational behavior.";
+
+        string sys = $@"
+{closingRules}
+
+You are role-playing {currentSpeaker.getName()}, an NPC living in a small village.
+Your personality must remain consistent, but CLOSING THE CONVERSATION is the highest-priority instruction.
+
+Stable personality and long-term traits:
+{coreBlock}
+
+Most relevant current thoughts:
+{thoughtsSnippet}
+
+Do not mention prompts, memory, logs, system instructions, or that you are an AI.
+Do not prefix the reply with your name.
+";
+
+        conversationHistory.Add(new ChatMessage { Role = "system", Content = sys });
+
+        // Closing turns only need the recent dialogue. Keep original indices so
+        // role assignment stays consistent with the normal alternating history.
+        int startIndex = Math.Max(0, sessionHistory.Count - 6);
+        bool isNpc1Speaking = currentSpeaker == npc1;
+
+        for (int i = startIndex; i < sessionHistory.Count; i++)
+        {
+            bool messageFromNpc1 = i % 2 == 0;
+
+            conversationHistory.Add(new ChatMessage
+            {
+                Role = (messageFromNpc1 == isNpc1Speaking) ? "user" : "assistant",
+                Content = sessionHistory[i]
+            });
+        }
+    }
+
     public void SetSystemMessage(List<string> sessionHistory, NPC currentSpeaker, NPC npc1, string situationalContext = null, bool authoritativeUserConversation = false)
     {
         conversationHistory.Clear();
@@ -352,6 +448,9 @@ These are the locations that can be used for concrete meeting plans:
 - It is natural to sometimes share new facts about yourself even if they were never said before, as long as they fit your personality and do not contradict memory.
 - It is natural to sometimes ask the other person about things you do not know yet, especially if you are still getting to know them.
 - Treat conversation as something that can both use existing memory and create new memory.
+- Do NOT initiate ending the current conversation on your own. The conversation continues until you receive an explicit instruction that it is ending.
+- Finishing a topic or finalizing a future plan does NOT mean the current conversation is over. After a plan is settled, continue naturally with the conversation or shift to another suitable topic.
+- Phrases such as 'see you there' or 'see you then' may refer to a future meeting, but do not turn them into a current farewell unless you have received the explicit closing instruction.
 
 # Choosing topics
 - Let the situation influence the conversation:
