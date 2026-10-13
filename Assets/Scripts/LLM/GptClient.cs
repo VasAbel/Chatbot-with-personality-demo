@@ -184,7 +184,7 @@ public class GptClient : ChatClient
     
     private string GenerateFallbackReply(string userMessage)
     {
-        // Special case: first-turn starter used by ConsoleChatbot
+        // Special case: first-turn starter used by ConversationManager
         if (userMessage.StartsWith("You are now speaking", StringComparison.OrdinalIgnoreCase))
         {
             var greet = Pick(new[]

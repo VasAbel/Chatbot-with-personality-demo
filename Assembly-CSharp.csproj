@@ -74,6 +74,7 @@
     <Compile Include="Assets\Scripts\Session\UserConversationSession.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationFactory.cs" />
     <Compile Include="Assets\Scripts\Characters\NPC.cs" />
+    <Compile Include="Assets\Scripts\Memory\NpcMemoryManager.cs" />
     <Compile Include="Assets\Scripts\Characters\Interaction.cs" />
     <Compile Include="Assets\Scripts\Characters\NpcMovement.cs" />
     <Compile Include="Assets\Scripts\ChatBubble\ChatBubbleAnchor.cs" />
@@ -89,6 +90,7 @@
     <Compile Include="Assets\Scripts\Characters\PlayerMovement.cs" />
     <Compile Include="Assets\Scripts\Characters\Movement.cs" />
     <Compile Include="Assets\Scripts\LLM\LlamaClient.cs" />
+    <Compile Include="Assets\Scripts\Session\ConversationManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />

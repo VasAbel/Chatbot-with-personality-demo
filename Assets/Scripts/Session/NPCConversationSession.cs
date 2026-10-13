@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEngine;
 
 public class NPCConversationSession : ConversationSession
 {
-    private NPC npc1, npc2;
-    private int currentSpeakerIndex = 0;
+    private readonly NPC npc1;
+    private readonly NPC npc2;
+    private readonly IReadOnlyList<NPC> participants;
+    private int currentSpeakerIndex;
 
     private readonly string npc1CurrentArea;
     private readonly string npc2CurrentArea;
@@ -17,25 +18,28 @@ public class NPCConversationSession : ConversationSession
     private readonly string npc1EventContext;
     private readonly string npc2EventContext;
 
-    public bool IsClosingRequested { get; private set; } = false;
+    private bool closingRequested;
 
     public NPCConversationSession(NPC npc1, NPC npc2)
     {
         this.npc1 = npc1;
         this.npc2 = npc2;
-        conversationID = $"{this.npc1.getName()}-{this.npc2.getName()}";
+        participants = new[] { npc1, npc2 };
+        conversationID = $"{npc1.getName()}-{npc2.getName()}";
 
         npc1CurrentArea = npc1.GetCurrentAreaName();
         npc2CurrentArea = npc2.GetCurrentAreaName();
         npc1Heading = npc1.GetHeadingDisplayName();
         npc2Heading = npc2.GetHeadingDisplayName();
         conversationTimestamp = npc1.GetCurrentGameTimestamp();
+
         var timer = UnityEngine.Object.FindObjectOfType<NPCGlobalTimer>();
         conversationDateTime = timer != null ? timer.GetCurrentDateTime() : DateTime.Now;
 
         npc1EventContext = SocialEventManager.Instance != null
             ? SocialEventManager.Instance.BuildConversationContext(npc1, npc2)
             : "- Global event registry unavailable.";
+
         npc2EventContext = SocialEventManager.Instance != null
             ? SocialEventManager.Instance.BuildConversationContext(npc2, npc1)
             : "- Global event registry unavailable.";
@@ -48,39 +52,29 @@ public class NPCConversationSession : ConversationSession
         );
     }
 
+    public override IReadOnlyList<NPC> Participants => participants;
+    public override DateTime ConversationDateTime => conversationDateTime;
+    public override bool IsClosingRequested => closingRequested;
+
     public override NPC GetCurrentSpeaker()
     {
-        return (currentSpeakerIndex == 0) ? npc1 : npc2;
+        return currentSpeakerIndex == 0 ? npc1 : npc2;
     }
 
     public override void UpdateMessageHistory(string message)
-    {  
+    {
         currentSpeakerIndex = 1 - currentSpeakerIndex;
-        NPC currentSpeaker = GetCurrentSpeaker();
-        string speakerName = currentSpeaker != null ? currentSpeaker.getName() : null;
+        NPC nextSpeaker = GetCurrentSpeaker();
 
         if (message.StartsWith("You are now speaking to"))
-        {
             messageHistory.Add(message);
-        }   
         else
-        {
-            messageHistory.Add($"{speakerName}: {message}");
-        }
-    }
-
-    public void AddSpokenLine(NPC speaker, string message)
-    {
-        if (speaker == null || string.IsNullOrWhiteSpace(message))
-            return;
-
-        spokenTranscript.Add($"{speaker.getName()}: {message.Trim()}");
+            messageHistory.Add($"{nextSpeaker.getName()}: {message}");
     }
 
     private string BuildSituationFor(NPC speaker)
     {
         bool isNpc1 = speaker == npc1;
-
         string currentArea = isNpc1 ? npc1CurrentArea : npc2CurrentArea;
         string heading = isNpc1 ? npc1Heading : npc2Heading;
         string eventContext = isNpc1 ? npc1EventContext : npc2EventContext;
@@ -96,20 +90,16 @@ $@"- Current in-game time: {conversationTimestamp}
     public override void PrepareForNextSpeaker(GptClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        string situation = BuildSituationFor(newSpeaker);
-        Debug.Log(
-            $"[LLM Context] Speaker: {newSpeaker.getName()}\n{situation}"
-        );
-
-        client.SetSystemMessage(messageHistory, newSpeaker, npc1, situation);
+        client.SetSystemMessage(messageHistory, newSpeaker, npc1, BuildSituationFor(newSpeaker));
     }
 
-    public void RequestGracefulClose()
+    public override bool RequestGracefulClose()
     {
-        IsClosingRequested = true;
+        closingRequested = true;
+        return true;
     }
 
-    public void PrepareForClosingSpeaker(GptClient client, bool isFinalReply)
+    public override void PrepareForClosingSpeaker(GptClient client, bool isFinalReply)
     {
         NPC newSpeaker = GetCurrentSpeaker();
 
@@ -120,13 +110,62 @@ $@"- Current in-game time: {conversationTimestamp}
         client.SetClosingSystemMessage(messageHistory, newSpeaker, npc1, isFinalReply);
     }
 
-
-    public override bool IsUserConversation() => false;
-
-    public DateTime GetConversationDateTime() => conversationDateTime;
-
-    public NPC GetNPC(int index)
+    public override string BuildInitialPrompt()
     {
-        return index == 0 ? npc1 : npc2;
+        bool knowsPartner = KnowsPartner(npc1, npc2);
+
+        string partnerKnowsAboutMe = "";
+        if (npc2.memory.socialByNpc != null &&
+            npc2.memory.socialByNpc.TryGetValue(npc1.getName(), out var knownByPartner) &&
+            !string.IsNullOrWhiteSpace(knownByPartner))
+        {
+            partnerKnowsAboutMe = knownByPartner;
+        }
+
+        return knowsPartner
+            ? BuildKnownPartnerPrompt(npc2, partnerKnowsAboutMe)
+            : BuildFirstMeetingPrompt(npc2);
     }
+
+    private static bool KnowsPartner(NPC self, NPC partner)
+    {
+        if (self?.memory?.socialByNpc == null)
+            return false;
+
+        return self.memory.socialByNpc.TryGetValue(partner.getName(), out string value) &&
+               !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static string BuildKnownPartnerPrompt(NPC partner, string partnerKnowsAboutMe)
+    {
+        return $@"
+You are now speaking to {partner.getName()}.
+
+Start with a short, natural greeting.
+Treat them as someone you already know; information about them is available in your social memory.
+Do NOT introduce yourself again.
+
+Based on past conversations, you believe {partner.getName()} already knows these things about you:
+{(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
+
+Avoid re-explaining the above unless correcting or meaningfully expanding it.
+Do not mention memory or these instructions.
+Now say your first message.";
+    }
+
+    private static string BuildFirstMeetingPrompt(NPC partner)
+    {
+        return @"
+You are now speaking to someone you have never met before.
+
+You do NOT know their name yet.
+Start with a short natural greeting and briefly introduce yourself once, including your name.
+Then continue like someone open to getting to know the other person.
+Do not mention memory or these instructions.
+Now say your first message.";
+    }
+
+    // Compatibility helpers for systems not yet refactored.
+    public NPC GetNPC(int index) => index == 0 ? npc1 : npc2;
+    public DateTime GetConversationDateTime() => ConversationDateTime;
 }

@@ -1,10 +1,18 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using TMPro;
 using UnityEngine;
 
 public class UserConversationSession : ConversationSession
 {
     private readonly NPC npc;
+    private readonly IReadOnlyList<NPC> participants;
     private bool isUserTurn = true;
+
+    private readonly TMP_InputField dialogueBox;
+    private readonly GameObject responseBox;
 
     private readonly string currentArea;
     private readonly string heading;
@@ -12,11 +20,14 @@ public class UserConversationSession : ConversationSession
     private readonly DateTime conversationDateTime;
     private readonly string eventContext;
 
-    public UserConversationSession(NPC npc)
+    public UserConversationSession(NPC npc, TMP_InputField dialogueBox, GameObject responseBox)
     {
         this.npc = npc;
-        conversationID = $"User-{npc.getName()}";
+        this.dialogueBox = dialogueBox;
+        this.responseBox = responseBox;
+        participants = new[] { npc };
 
+        conversationID = $"User-{npc.getName()}";
         currentArea = npc.GetCurrentAreaName();
         heading = npc.GetHeadingDisplayName();
         timestamp = npc.GetCurrentGameTimestamp();
@@ -29,6 +40,10 @@ public class UserConversationSession : ConversationSession
             : "- Global event registry unavailable.";
     }
 
+    public override IReadOnlyList<NPC> Participants => participants;
+    public override DateTime ConversationDateTime => conversationDateTime;
+    public override bool IsAuthoritativeUserConversation => true;
+
     public override NPC GetCurrentSpeaker()
     {
         return isUserTurn ? null : npc;
@@ -40,16 +55,62 @@ public class UserConversationSession : ConversationSession
         isUserTurn = !isUserTurn;
     }
 
-    public void AddUserLine(string message)
+    public override void AddExternalSpokenLine(string message)
     {
         if (!string.IsNullOrWhiteSpace(message))
             spokenTranscript.Add($"User: {message.Trim()}");
     }
 
-    public void AddNpcLine(string message)
+    public override async Task<string> WaitForExternalInputAsync(CancellationToken token)
     {
-        if (!string.IsNullOrWhiteSpace(message))
-            spokenTranscript.Add($"{npc.getName()}: {message.Trim()}");
+        if (dialogueBox == null)
+            return null;
+
+        dialogueBox.gameObject.SetActive(true);
+        dialogueBox.text = "";
+        dialogueBox.ActivateInputField();
+
+        var tcs = new TaskCompletionSource<string>();
+
+        void OnSubmit(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+
+            dialogueBox.onSubmit.RemoveListener(OnSubmit);
+            dialogueBox.gameObject.SetActive(false);
+            tcs.TrySetResult(text);
+        }
+
+        dialogueBox.onSubmit.AddListener(OnSubmit);
+
+        using (token.Register(() =>
+        {
+            dialogueBox.onSubmit.RemoveListener(OnSubmit);
+            dialogueBox.gameObject.SetActive(false);
+            tcs.TrySetCanceled();
+        }))
+        {
+            try
+            {
+                return await tcs.Task;
+            }
+            catch (TaskCanceledException)
+            {
+                return null;
+            }
+        }
+    }
+
+    public override void ShowNpcResponse(string response)
+    {
+        if (responseBox == null)
+            return;
+
+        responseBox.SetActive(true);
+        TMP_Text text = responseBox.GetComponentInChildren<TMP_Text>();
+        if (text != null)
+            text.SetText(response);
     }
 
     public override void PrepareForNextSpeaker(GptClient client)
@@ -65,9 +126,12 @@ $@"- Current in-game time: {timestamp}
         client.SetSystemMessage(messageHistory, npc, npc, situation, authoritativeUserConversation: true);
     }
 
-    public override bool IsUserConversation() => true;
+    public override void OnReleased()
+    {
+        npc.isTalkingToUser = false;
+    }
 
+    // Compatibility helpers for systems not yet refactored.
     public NPC GetNPC() => npc;
-
-    public DateTime GetConversationDateTime() => conversationDateTime;
+    public DateTime GetConversationDateTime() => ConversationDateTime;
 }

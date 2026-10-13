@@ -350,9 +350,9 @@ Return only the JSON object.";
 
         if(hour == 0)
         {
-            var bot = FindObjectOfType<ConsoleChatbot>();
-            if(bot != null)
-                await bot.CleanNpcMemoryAsync(this);
+            var conversationManager = FindObjectOfType<ConversationManager>();
+            if (conversationManager != null)
+                await conversationManager.MemoryManager.CleanNpcMemoryAsync(this);
 
             bool ok = await TryGenerateScheduleFromLLM();
 
