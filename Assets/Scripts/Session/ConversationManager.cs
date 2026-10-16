@@ -50,20 +50,72 @@ public class ConversationManager : MonoBehaviour
         }
     }
 
-    public void StartChatSession(ConversationSession session)
+    public bool TryStartNpcConversation(NPC npc1, NPC npc2)
+    {
+        if (npc1 == null || npc2 == null || npc1 == npc2)
+            return false;
+
+        if (npc1.isConversationBlocked || npc2.isConversationBlocked)
+            return false;
+
+        ConversationSession session = ConversationFactory.CreateNpcSession(npc1, npc2);
+        if (!TryStartSession(session))
+            return false;
+
+        npc1.isConversationBlocked = true;
+        npc2.isConversationBlocked = true;
+        return true;
+    }
+
+    public bool TryStartUserConversation(
+        NPC npc,
+        TMPro.TMP_InputField dialogueBox,
+        GameObject responseBox)
+    {
+        if (npc == null || npc.isConversationBlocked)
+            return false;
+
+        // The simulation has one player, so only one user conversation can be active.
+        if (activeConversations.Values.Any(s => s.IsAuthoritativeUserConversation))
+            return false;
+
+        ConversationSession session = ConversationFactory.CreateUserSession(
+            npc,
+            dialogueBox,
+            responseBox
+        );
+
+        if (!TryStartSession(session))
+            return false;
+
+        npc.isConversationBlocked = true;
+        npc.isTalkingToUser = true;
+        return true;
+    }
+
+    public bool IsUserConversationActiveWith(NPC npc)
+    {
+        return npc != null &&
+               activeConversations.Values.Any(session =>
+                   session.IsAuthoritativeUserConversation &&
+                   session.Participants.Contains(npc));
+    }
+
+    private bool TryStartSession(ConversationSession session)
     {
         if (session == null)
-            return;
+            return false;
 
         if (activeConversations.ContainsKey(session.conversationID))
         {
             Debug.LogWarning($"Conversation {session.conversationID} is already active.");
-            return;
+            return false;
         }
 
         EnsureMemoryManager();
         activeConversations[session.conversationID] = session;
         _ = RunConversationAsync(session);
+        return true;
     }
 
     private sealed class ConversationRunState
@@ -220,33 +272,51 @@ public class ConversationManager : MonoBehaviour
         }
     }
 
-    public bool RequestNPCSessionClose(string conversationID)
+    public bool RequestNpcConversationClose(NPC npc1, NPC npc2)
     {
-        if (!activeConversations.TryGetValue(conversationID, out ConversationSession session))
+        ConversationSession session = FindNpcConversation(npc1, npc2);
+        if (session == null)
             return false;
 
         bool accepted = session.RequestGracefulClose();
         if (accepted)
-            Debug.Log($"Conversation {conversationID} received a graceful-close request.");
+            Debug.Log($"Conversation {session.conversationID} received a graceful-close request.");
 
         return accepted;
     }
 
-    /// <summary>
-    /// Immediate cancellation is used for externally controlled sessions such as player chat.
-    /// NPC-NPC conversations should normally use RequestNPCSessionClose instead.
-    /// </summary>
-    public bool StopSession(string conversationID)
+    public bool StopUserConversation(NPC npc)
     {
-        if (!activeConversations.TryGetValue(conversationID, out ConversationSession session))
+        ConversationSession session = activeConversations.Values.FirstOrDefault(candidate =>
+            candidate.IsAuthoritativeUserConversation &&
+            candidate.Participants.Contains(npc));
+
+        if (session == null)
             return false;
+
+        // Preserve the previous behavior: after the player closes the visible
+        // conversation, the NPC may move again while post-processing keeps it blocked
+        // from starting another conversation.
+        npc.isTalkingToUser = false;
 
         session.CancellationTokenSource.Cancel();
         session.IsActive = false;
-        activeConversations.Remove(conversationID);
+        activeConversations.Remove(session.conversationID);
 
         _ = FinalizeConversationAsync(session);
         return true;
+    }
+
+    private ConversationSession FindNpcConversation(NPC npc1, NPC npc2)
+    {
+        if (npc1 == null || npc2 == null)
+            return null;
+
+        return activeConversations.Values.FirstOrDefault(session =>
+            !session.IsAuthoritativeUserConversation &&
+            session.Participants.Count == 2 &&
+            session.Participants.Contains(npc1) &&
+            session.Participants.Contains(npc2));
     }
 
     private async Task FinalizeConversationAsync(ConversationSession session)

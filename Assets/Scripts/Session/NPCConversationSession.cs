@@ -95,6 +95,9 @@ $@"- Current in-game time: {conversationTimestamp}
 
     public override bool RequestGracefulClose()
     {
+        if (closingRequested)
+            return false;
+
         closingRequested = true;
         return true;
     }
