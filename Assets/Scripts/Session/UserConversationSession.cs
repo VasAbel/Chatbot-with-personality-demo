@@ -29,11 +29,13 @@ public class UserConversationSession : ConversationSession
 
         conversationID = $"User-{npc.getName()}";
         currentArea = npc.GetCurrentAreaName();
-        heading = npc.GetHeadingDisplayName();
-        timestamp = npc.GetCurrentGameTimestamp();
+
+        NpcScheduleController schedule = npc.GetComponent<NpcScheduleController>();
+        heading = schedule != null ? schedule.GetHeadingDisplayName() : "unknown place";
 
         var timer = UnityEngine.Object.FindObjectOfType<NPCGlobalTimer>();
         conversationDateTime = timer != null ? timer.GetCurrentDateTime() : DateTime.Now;
+        timestamp = timer != null ? timer.GetFullTimestamp() : "Unknown time";
 
         eventContext = SocialEventManager.Instance != null
             ? SocialEventManager.Instance.BuildConversationContext(npc, null, partnerIsUser: true)

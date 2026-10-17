@@ -1494,7 +1494,6 @@ MonoBehaviour:
   idx: 2
   isConversationBlocked: 0
   isTalkingToUser: 0
-  dailySchedule: []
   memory:
     corePersonality: 
     currentThoughts: []
@@ -3517,7 +3516,6 @@ MonoBehaviour:
   idx: 1
   isConversationBlocked: 0
   isTalkingToUser: 0
-  dailySchedule: []
   memory:
     corePersonality: 
     currentThoughts: []
@@ -4806,6 +4804,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 808696157}
     m_Modifications:
+    - target: {fileID: -7019128042506549103, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+      propertyPath: m_Speed
+      value: 5
+      objectReference: {fileID: 0}
     - target: {fileID: 907112680403534821, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
       propertyPath: m_IsTrigger
       value: 1
@@ -4878,6 +4880,8 @@ PrefabInstance:
     - {fileID: 8410381264206735192, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
     - {fileID: -8782407678852939042, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
     - {fileID: 4899496348010752953, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+    - {fileID: 3691458950712884513, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
+    - {fileID: -3129879752779511871, guid: 6fa582c8f0d8a524dbbc7949e52c2d7d, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:

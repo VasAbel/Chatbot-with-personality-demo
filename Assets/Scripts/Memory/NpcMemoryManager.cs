@@ -19,6 +19,7 @@ public sealed class NpcMemoryManager
     private readonly SemaphoreSlim _requestSemaphore;
     private readonly Func<bool> _logToConsole;
     private readonly Func<bool> _logToFile;
+    private readonly NPCGlobalTimer _gameTimer;
 
     private readonly Dictionary<string, int> _pairConversationCounts = new Dictionary<string, int>();
 
@@ -32,6 +33,7 @@ public sealed class NpcMemoryManager
         _requestSemaphore = requestSemaphore;
         _logToConsole = logToConsole ?? (() => false);
         _logToFile = logToFile ?? (() => false);
+        _gameTimer = UnityEngine.Object.FindObjectOfType<NPCGlobalTimer>();
     }
 
     private string GetPairKey(string a, string b)
@@ -401,7 +403,7 @@ Return ONLY the JSON object.";
                 LogMemoryOperationCountsFromJson(npc1, json, convId, "User");
                 ApplyMemoryJson(npc1, json);
                 LogMemoryDelta(npc1.getName(), "User", convId, pairCount, json, before, npc1);
-                npc1.LogMemoryToFile();
+                LogMemoryToFile(npc1);
                 return;
             }
 
@@ -442,8 +444,8 @@ Return ONLY the JSON object.";
             LogMemoryDelta(npc1.getName(), npc2.getName(), convId, npcPairCount, json1, npc1BeforeMem, npc1);
             LogMemoryDelta(npc2.getName(), npc1.getName(), convId, npcPairCount, json2, npc2BeforeMem, npc2);
 
-            npc1.LogMemoryToFile();
-            npc2.LogMemoryToFile();
+            LogMemoryToFile(npc1);
+            LogMemoryToFile(npc2);
         }
         catch (Exception ex)
         {
@@ -633,7 +635,7 @@ Return ONLY the JSON object.";
 
             ApplyCleanedMemory(npc, cleaned);
             LogMemoryClean(npc.getName(), before, npc, rawJson);
-            npc.LogMemoryToFile();
+            LogMemoryToFile(npc);
         }
         catch (Exception ex)
         {
@@ -865,6 +867,80 @@ Return ONLY the JSON object.";
         }
     }
 
+    private static void DecayThoughts(NPC npc, float dt)
+    {
+        if (npc?.memory?.currentThoughts == null || npc.memory.currentThoughts.Count == 0)
+            return;
+
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        const float baseSalienceDecayPerUnit = 0.08f;
+        const float baseConfidenceDecayPerUnit = 0.02f;
+
+        foreach (Thought thought in npc.memory.currentThoughts)
+        {
+            float ageDays = Mathf.Max(0f, (now - thought.createdUnix) / 86400f);
+            float ageFactor = 1f + ageDays * 0.5f;
+
+            thought.salience = Mathf.Clamp01(
+                thought.salience - baseSalienceDecayPerUnit * dt * ageFactor
+            );
+            thought.confidence = Mathf.Clamp01(
+                thought.confidence - baseConfidenceDecayPerUnit * dt
+            );
+        }
+
+        npc.memory.currentThoughts.RemoveAll(t => t.salience < 0.05f);
+    }
+
+    private static void LogMemoryToFile(NPC npc)
+    {
+        string logPath = Path.Combine(Application.persistentDataPath, $"{npc.getName()}_memory.txt");
+
+        using (StreamWriter writer = new StreamWriter(logPath, false))
+        {
+            writer.WriteLine($"=== Memory log for {npc.getName()} ===");
+            writer.WriteLine($"Timestamp: {DateTime.Now}");
+            writer.WriteLine();
+
+            writer.WriteLine("=== CORE PERSONALITY ===");
+            writer.WriteLine(npc.memory.corePersonality?.Trim() ?? "(none)");
+            writer.WriteLine();
+
+            writer.WriteLine("=== SOCIAL MEMORY ===");
+            if (npc.memory.socialByNpc != null && npc.memory.socialByNpc.Count > 0)
+            {
+                foreach (var kv in npc.memory.socialByNpc)
+                {
+                    writer.WriteLine($"[{kv.Key}]");
+                    writer.WriteLine(kv.Value?.Trim() ?? "(no data)");
+                    writer.WriteLine();
+                }
+            }
+            else
+            {
+                writer.WriteLine("(no known NPCs yet)");
+                writer.WriteLine();
+            }
+
+            writer.WriteLine("=== CURRENT THOUGHTS ===");
+            if (npc.memory.currentThoughts != null && npc.memory.currentThoughts.Count > 0)
+            {
+                foreach (Thought thought in npc.memory.currentThoughts.OrderByDescending(t => t.salience))
+                {
+                    DateTime created = DateTimeOffset.FromUnixTimeSeconds(thought.createdUnix).DateTime;
+                    writer.WriteLine($"- [{(string.IsNullOrWhiteSpace(thought.gameTimestamp) ? "unknown time" : thought.gameTimestamp)}] {thought.text}");
+                    writer.WriteLine($"  → confidence: {thought.confidence:F2}, salience: {thought.salience:F2}, created(real): {created}");
+                    writer.WriteLine();
+                }
+            }
+            else
+            {
+                writer.WriteLine("(no active thoughts)");
+                writer.WriteLine();
+            }
+        }
+    }
+
     [Serializable]
     private class CleanedThoughtDto
     {
@@ -931,7 +1007,14 @@ Return ONLY the JSON object.";
 
     private string BuildMemoryStamp(NPC npc)
     {
-        return $"[{npc.GetMemoryTimestampTag()}]";
+        return $"[{GetMemoryTimestampTag()}]";
+    }
+
+    private string GetMemoryTimestampTag()
+    {
+        return _gameTimer != null
+            ? _gameTimer.FormatMemoryTimestamp()
+            : "Unknown time";
     }
 
     private string StampMemoryLine(NPC npc, string text)
@@ -1118,7 +1201,7 @@ Return ONLY the JSON object.";
         // =========================
         if (delta.thoughts != null)
         {
-            npc.DecayThoughts(1.0f);
+            DecayThoughts(npc, 1.0f);
 
             if (npc.memory.currentThoughts == null)
                 npc.memory.currentThoughts = new List<Thought>();
@@ -1186,7 +1269,7 @@ Return ONLY the JSON object.";
                                 confidence = 0.6f,
                                 salience = 0.6f,
                                 createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                                gameTimestamp = npc.GetMemoryTimestampTag()
+                                gameTimestamp = GetMemoryTimestampTag()
                             });
                         }
                     }
@@ -1209,7 +1292,7 @@ Return ONLY the JSON object.";
                             confidence = 0.6f,
                             salience = 0.6f,
                             createdUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                            gameTimestamp = npc.GetMemoryTimestampTag()
+                            gameTimestamp = GetMemoryTimestampTag()
                         });
                     }
                 }
@@ -1222,7 +1305,7 @@ Return ONLY the JSON object.";
                 .ToList();
         }
 
-        Debug.Log($"[Memory Timestamp] {npc.getName()} updated memory at {npc.GetMemoryTimestampTag()}");
+        Debug.Log($"[Memory Timestamp] {npc.getName()} updated memory at {GetMemoryTimestampTag()}");
     }
 
     private static string ExtractTimestampPrefix(string s)

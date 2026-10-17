@@ -9,6 +9,7 @@ public class MeasurementLogger : MonoBehaviour
     public static MeasurementLogger Instance { get; private set; }
 
     private string basePath;
+    private NPCGlobalTimer gameTimer;
 
     // Tracks new acquaintances already logged:
     // key = "Amy|Tim"
@@ -24,6 +25,7 @@ public class MeasurementLogger : MonoBehaviour
 
         Instance = this;
         basePath = Application.persistentDataPath;
+        gameTimer = FindObjectOfType<NPCGlobalTimer>();
 
         EnsureFile(
             "measurement_conversations.csv",
@@ -74,19 +76,51 @@ public class MeasurementLogger : MonoBehaviour
         return $"\"{value}\"";
     }
 
-    private string Date(NPC npc) => npc.GetCurrentGameDateOnly();
-    private string Time(NPC npc) => npc.GetCurrentGameHourString();
-
-    private int Hour(NPC npc)
+    private NPCGlobalTimer GetGameTimer()
     {
-        var timer = FindObjectOfType<NPCGlobalTimer>();
+        if (gameTimer == null)
+            gameTimer = FindObjectOfType<NPCGlobalTimer>();
+
+        return gameTimer;
+    }
+
+    private string Date()
+    {
+        NPCGlobalTimer timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentDateString() : "";
+    }
+
+    private string Time()
+    {
+        NPCGlobalTimer timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentHourString() : "";
+    }
+
+    private int Hour()
+    {
+        NPCGlobalTimer timer = GetGameTimer();
         return timer != null ? timer.GetCurrentHour() : -1;
     }
 
-    private int Day(NPC npc)
+    private int Day()
     {
-        var timer = FindObjectOfType<NPCGlobalTimer>();
+        NPCGlobalTimer timer = GetGameTimer();
         return timer != null ? timer.GetCurrentDay() : -1;
+    }
+
+    private string DayOfWeek()
+    {
+        NPCGlobalTimer timer = GetGameTimer();
+        return timer != null ? timer.GetCurrentDayOfWeekString() : "";
+    }
+
+    private static string Heading(NPC npc)
+    {
+        if (npc == null)
+            return "unknown place";
+
+        NpcScheduleController schedule = npc.GetComponent<NpcScheduleController>();
+        return schedule != null ? schedule.GetHeadingDisplayName() : "unknown place";
     }
 
     public void LogConversationFinished(
@@ -98,14 +132,14 @@ public class MeasurementLogger : MonoBehaviour
     {
         if (npc1 == null || npc2 == null) return;
 
-        string date = Date(npc1);
-        string time = Time(npc1);
-        int day = Day(npc1);
-        int hour = Hour(npc1);
+        string date = Date();
+        string time = Time();
+        int day = Day();
+        int hour = Hour();
 
         string place = npc1.GetCurrentAreaName();
-        string npc1Heading = npc1.GetHeadingDisplayName();
-        string npc2Heading = npc2.GetHeadingDisplayName();
+        string npc1Heading = Heading(npc1);
+        string npc2Heading = Heading(npc2);
 
         Append(
             "measurement_conversations.csv",
@@ -140,10 +174,10 @@ public class MeasurementLogger : MonoBehaviour
         Append(
             "measurement_acquaintances.csv",
             string.Join(",",
-                Csv(self.GetCurrentGameDateOnly()),
-                Csv(self.GetCurrentGameHourString()),
-                Day(self),
-                Hour(self),
+                Csv(Date()),
+                Csv(Time()),
+                Day(),
+                Hour(),
                 Csv(self.getName()),
                 Csv(other.getName()),
                 Csv(conversationId)
@@ -162,10 +196,10 @@ public class MeasurementLogger : MonoBehaviour
         Append(
             "measurement_mentions.csv",
             string.Join(",",
-                Csv(speaker.GetCurrentGameDateOnly()),
-                Csv(speaker.GetCurrentGameHourString()),
-                Day(speaker),
-                Hour(speaker),
+                Csv(Date()),
+                Csv(Time()),
+                Day(),
+                Hour(),
                 Csv(conversationId),
                 Csv(speaker.getName()),
                 Csv(mentionedNpcName),
@@ -190,10 +224,10 @@ public class MeasurementLogger : MonoBehaviour
         Append(
             "measurement_memory_operations.csv",
             string.Join(",",
-                Csv(npc.GetCurrentGameDateOnly()),
-                Csv(npc.GetCurrentGameHourString()),
-                Day(npc),
-                Hour(npc),
+                Csv(Date()),
+                Csv(Time()),
+                Day(),
+                Hour(),
                 Csv(npc.getName()),
                 Csv(conversationId),
                 Csv(partnerName),
@@ -224,8 +258,8 @@ public class MeasurementLogger : MonoBehaviour
             string.Join(",",
                 new[]
                 {
-                    Csv(npc.GetCurrentGameDateOnly()),
-                    Csv(npc.GetCurrentGameDayOfWeek()),
+                    Csv(Date()),
+                    Csv(DayOfWeek()),
                     Csv(npc.getName())
                 }
                 .Concat(normalized.Select(Csv))

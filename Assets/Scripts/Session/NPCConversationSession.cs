@@ -29,12 +29,12 @@ public class NPCConversationSession : ConversationSession
 
         npc1CurrentArea = npc1.GetCurrentAreaName();
         npc2CurrentArea = npc2.GetCurrentAreaName();
-        npc1Heading = npc1.GetHeadingDisplayName();
-        npc2Heading = npc2.GetHeadingDisplayName();
-        conversationTimestamp = npc1.GetCurrentGameTimestamp();
+        npc1Heading = GetScheduleHeading(npc1);
+        npc2Heading = GetScheduleHeading(npc2);
 
         var timer = UnityEngine.Object.FindObjectOfType<NPCGlobalTimer>();
         conversationDateTime = timer != null ? timer.GetCurrentDateTime() : DateTime.Now;
+        conversationTimestamp = timer != null ? timer.GetFullTimestamp() : "Unknown time";
 
         npc1EventContext = SocialEventManager.Instance != null
             ? SocialEventManager.Instance.BuildConversationContext(npc1, npc2)
@@ -50,6 +50,12 @@ public class NPCConversationSession : ConversationSession
             $"{npc1.getName()} | at: {npc1CurrentArea} | heading to: {npc1Heading}\n" +
             $"{npc2.getName()} | at: {npc2CurrentArea} | heading to: {npc2Heading}"
         );
+    }
+
+    private static string GetScheduleHeading(NPC npc)
+    {
+        NpcScheduleController schedule = npc.GetComponent<NpcScheduleController>();
+        return schedule != null ? schedule.GetHeadingDisplayName() : "unknown place";
     }
 
     public override IReadOnlyList<NPC> Participants => participants;

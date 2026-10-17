@@ -67,6 +67,7 @@
     <Compile Include="Assets\Scripts\Characters\PlayerConversationUI.cs" />
     <Compile Include="Assets\Scripts\Places\PlaceReference.cs" />
     <Compile Include="Assets\Scripts\LLM\ChatClient.cs" />
+    <Compile Include="Assets\Scripts\Characters\NpcScheduleController.cs" />
     <Compile Include="Assets\Scripts\Session\NPCConversationSession.cs" />
     <Compile Include="Assets\Scripts\LLM\LlamaAPI.cs" />
     <Compile Include="Assets\Scripts\Places\PlaceRegistry.cs" />
