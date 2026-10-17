@@ -916,7 +916,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1 &111414277
 GameObject:
   m_ObjectHideFlags: 0
@@ -2891,7 +2890,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1 &661677191
 GameObject:
   m_ObjectHideFlags: 0
@@ -3577,7 +3575,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!114 &728550599
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4735,7 +4732,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!54 &1000350516
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -5484,7 +5480,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1 &1136703461
 GameObject:
   m_ObjectHideFlags: 0
@@ -7606,7 +7601,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1 &1590455856
 GameObject:
   m_ObjectHideFlags: 0
@@ -8551,7 +8545,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1001 &1777938527
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10086,6 +10079,7 @@ GameObject:
   - component: {fileID: 2024966507}
   - component: {fileID: 2024966506}
   - component: {fileID: 2024966505}
+  - component: {fileID: 2024966508}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -10178,6 +10172,21 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
+--- !u!114 &2024966508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2024966503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a43400d58272f2f47b533fa7f4688440, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactionPrompt: {fileID: 290957118}
+  dialogueBox: {fileID: 1767314832}
+  responseBox: {fileID: 123880531}
 --- !u!1001 &2026070788
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10622,7 +10631,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5494e135812a2ba4fba92e0001eca272, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  responseBox: {fileID: 123880531}
 --- !u!1001 &2088348947
 PrefabInstance:
   m_ObjectHideFlags: 0

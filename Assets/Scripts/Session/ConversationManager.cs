@@ -93,14 +93,6 @@ public class ConversationManager : MonoBehaviour
         return true;
     }
 
-    public bool IsUserConversationActiveWith(NPC npc)
-    {
-        return npc != null &&
-               activeConversations.Values.Any(session =>
-                   session.IsAuthoritativeUserConversation &&
-                   session.Participants.Contains(npc));
-    }
-
     private bool TryStartSession(ConversationSession session)
     {
         if (session == null)
