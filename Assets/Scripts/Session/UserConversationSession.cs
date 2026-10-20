@@ -142,8 +142,5 @@ $@"- Current in-game time: {timestamp}
     {
         npc.isTalkingToUser = false;
     }
-
-    // Compatibility helpers for systems not yet refactored.
-    public NPC GetNPC() => npc;
-    public DateTime GetConversationDateTime() => ConversationDateTime;
+    
 }

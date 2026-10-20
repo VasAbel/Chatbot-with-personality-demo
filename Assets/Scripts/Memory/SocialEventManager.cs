@@ -577,27 +577,23 @@ public class SocialEventManager : MonoBehaviour
         if (transcript == null || transcript.Count < 2)
             return;
 
-        bool isUserConversation = session is UserConversationSession;
-        DateTime conversationTime;
-        string participantDescription;
-        string currentNpcName = null;
-
-        if (session is NPCConversationSession npcSession)
+        if (session.Participants == null || session.Participants.Count == 0)
         {
-            conversationTime = npcSession.GetConversationDateTime();
-            participantDescription = $"{npcSession.GetNPC(0).getName()}, {npcSession.GetNPC(1).getName()}";
-        }
-        else if (session is UserConversationSession userSession)
-        {
-            conversationTime = userSession.GetConversationDateTime();
-            currentNpcName = userSession.GetNPC().getName();
-            participantDescription = $"User, {currentNpcName}";
-        }
-        else
-        {
-            Debug.LogWarning($"[EVENTS] Unsupported conversation-session type: {session.GetType().Name}");
+            Debug.LogWarning($"[EVENTS] Session {session.conversationID} has no NPC participants.");
             return;
         }
+
+        bool isUserConversation = session.IsAuthoritativeUserConversation;
+        DateTime conversationTime = session.ConversationDateTime;
+        string currentNpcName = isUserConversation
+            ? session.Participants[0].getName()
+            : null;
+
+        string participantDescription = isUserConversation
+            ? $"User, {currentNpcName}"
+            : string.Join(", ", session.Participants
+                .Where(npc => npc != null)
+                .Select(npc => npc.getName()));
 
         await eventUpdateSemaphore.WaitAsync();
         try

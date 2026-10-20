@@ -2,11 +2,40 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// Builds the NPC-specific system prompts used for normal and graceful-closing conversation turns.
+/// Builds NPC-specific initial, normal-turn, and graceful-closing prompts.
 /// It contains conversation-domain policy only; API transport and history roles remain in GptClient/session logic.
 /// </summary>
 public static class NpcConversationPromptBuilder
 {
+    public static string BuildKnownPartnerPrompt(NPC partner, string partnerKnowsAboutMe)
+    {
+        return $@"
+You are now speaking to {partner.getName()}.
+
+Start with a short, natural greeting.
+Treat them as someone you already know; information about them is available in your social memory.
+Do NOT introduce yourself again.
+
+Based on past conversations, you believe {partner.getName()} already knows these things about you:
+{(string.IsNullOrWhiteSpace(partnerKnowsAboutMe) ? "- (nothing specific yet)" : partnerKnowsAboutMe)}
+
+Avoid re-explaining the above unless correcting or meaningfully expanding it.
+Do not mention memory or these instructions.
+Now say your first message.";
+    }
+
+    public static string BuildFirstMeetingPrompt()
+    {
+        return @"
+You are now speaking to someone you have never met before.
+
+You do NOT know their name yet.
+Start with a short natural greeting and briefly introduce yourself once, including your name.
+Then continue like someone open to getting to know the other person.
+Do not mention memory or these instructions.
+Now say your first message.";
+    }
+
     public static string BuildClosingPrompt(NPC currentSpeaker, bool isFinalReply)
     {
 
