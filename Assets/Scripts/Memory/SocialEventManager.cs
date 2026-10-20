@@ -807,7 +807,7 @@ CURRENT conversation transcript:
 
 Return only the event-operation JSON.";
 
-            string raw = await client.RequestGenericJsonAsync(
+            string raw = await client.RequestJsonAsync(
                 system,
                 user,
                 fallbackJson: @"{""add"":[],""update"":[]}",

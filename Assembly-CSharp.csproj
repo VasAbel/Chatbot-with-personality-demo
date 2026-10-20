@@ -69,6 +69,7 @@
     <Compile Include="Assets\Scripts\LLM\ChatClient.cs" />
     <Compile Include="Assets\Scripts\Characters\NpcScheduleController.cs" />
     <Compile Include="Assets\Scripts\Session\NPCConversationSession.cs" />
+    <Compile Include="Assets\Scripts\Session\NpcConversationPromptBuilder.cs" />
     <Compile Include="Assets\Scripts\LLM\LlamaAPI.cs" />
     <Compile Include="Assets\Scripts\Places\PlaceRegistry.cs" />
     <Compile Include="Assets\Scripts\LLM\GptClient.cs" />
@@ -91,7 +92,6 @@
     <Compile Include="Assets\Scripts\Config\SecretManager.cs" />
     <Compile Include="Assets\Scripts\Characters\PlayerMovement.cs" />
     <Compile Include="Assets\Scripts\Characters\Movement.cs" />
-    <Compile Include="Assets\Scripts\LLM\LlamaClient.cs" />
     <Compile Include="Assets\Scripts\Session\ConversationManager.cs" />
   </ItemGroup>
   <ItemGroup>

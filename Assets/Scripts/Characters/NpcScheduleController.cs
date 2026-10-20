@@ -259,7 +259,7 @@ Return only the JSON object.";
         string rawJson;
         try
         {
-            rawJson = await client.RequestGenericJsonAsync(
+            rawJson = await client.RequestJsonAsync(
                 system,
                 user,
                 maxTokens: 400

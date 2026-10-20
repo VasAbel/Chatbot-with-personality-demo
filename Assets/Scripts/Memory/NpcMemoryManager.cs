@@ -394,7 +394,8 @@ Return ONLY the JSON object.";
                 string json = await _client.RequestJsonAsync(
                     memorySystemPrompt,
                     PromptForUser(npc1),
-                    850
+                    maxTokens: 850,
+                    fallbackJson: @"{""core"":{},""social"":{},""thoughts"":{}}"
                 );
 
                 json = SanitizeJson(json);
@@ -420,8 +421,8 @@ Return ONLY the JSON object.";
             var npc1BeforeMem = CloneMemory(npc1.memory);
             var npc2BeforeMem = CloneMemory(npc2.memory);
 
-            string json1 = await _client.RequestJsonAsync(baseInstr, PromptForNpcPair(npc1, npc2), 700);
-            string json2 = await _client.RequestJsonAsync(baseInstr, PromptForNpcPair(npc2, npc1), 700);
+            string json1 = await _client.RequestJsonAsync(baseInstr, PromptForNpcPair(npc1, npc2), maxTokens: 700, fallbackJson: @"{""core"":{},""social"":{},""thoughts"":{}}");
+            string json2 = await _client.RequestJsonAsync(baseInstr, PromptForNpcPair(npc2, npc1), maxTokens: 700, fallbackJson: @"{""core"":{},""social"":{},""thoughts"":{}}");
 
             json1 = SanitizeJson(json1);
             json2 = SanitizeJson(json2);
@@ -604,7 +605,7 @@ Return ONLY the JSON object.";
 
             string user = BuildCleanerUserPrompt(npc);
 
-            string rawJson = await _client.RequestGenericJsonAsync(
+            string rawJson = await _client.RequestJsonAsync(
                 system,
                 user,
                 fallbackJson: @"{""core"":[],""social"":{},""thoughts"":[]}",

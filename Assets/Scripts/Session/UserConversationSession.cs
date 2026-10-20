@@ -125,7 +125,17 @@ $@"- Current in-game time: {timestamp}
 - Registered social-event context relevant to you:
 {eventContext}";
 
-        client.SetSystemMessage(messageHistory, npc, npc, situation, authoritativeUserConversation: true);
+        string systemPrompt = NpcConversationPromptBuilder.BuildNormalPrompt(
+            npc,
+            situation,
+            authoritativeUserConversation: true
+        );
+
+        client.SetConversationContext(
+            systemPrompt,
+            messageHistory,
+            evenHistoryEntriesAreUser: true
+        );
     }
 
     public override void OnReleased()

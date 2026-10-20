@@ -96,7 +96,16 @@ $@"- Current in-game time: {conversationTimestamp}
     public override void PrepareForNextSpeaker(GptClient client)
     {
         NPC newSpeaker = GetCurrentSpeaker();
-        client.SetSystemMessage(messageHistory, newSpeaker, npc1, BuildSituationFor(newSpeaker));
+        string systemPrompt = NpcConversationPromptBuilder.BuildNormalPrompt(
+            newSpeaker,
+            BuildSituationFor(newSpeaker)
+        );
+
+        client.SetConversationContext(
+            systemPrompt,
+            messageHistory,
+            evenHistoryEntriesAreUser: newSpeaker == npc1
+        );
     }
 
     public override bool RequestGracefulClose()
@@ -116,7 +125,17 @@ $@"- Current in-game time: {conversationTimestamp}
             $"[LLM Closing Context] Speaker: {newSpeaker.getName()} | finalReply={isFinalReply} | using dedicated compact closing prompt"
         );
 
-        client.SetClosingSystemMessage(messageHistory, newSpeaker, npc1, isFinalReply);
+        string systemPrompt = NpcConversationPromptBuilder.BuildClosingPrompt(
+            newSpeaker,
+            isFinalReply
+        );
+
+        client.SetConversationContext(
+            systemPrompt,
+            messageHistory,
+            evenHistoryEntriesAreUser: newSpeaker == npc1,
+            historyStartIndex: Math.Max(0, messageHistory.Count - 6)
+        );
     }
 
     public override string BuildInitialPrompt()
