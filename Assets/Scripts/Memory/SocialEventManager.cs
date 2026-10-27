@@ -832,6 +832,7 @@ Return only the event-operation JSON.";
             int updated = 0;
             string gameTimestamp = GetCurrentGameTimestamp();
             List<SocialEvent> snapshotToSave;
+            var measurementChanges = new List<(SocialEvent before, SocialEvent after, string changeType)>();
 
             lock (eventDataLock)
             {
@@ -855,6 +856,13 @@ Return only the event-operation JSON.";
                     normalized.lastUpdatedGameTimestamp = gameTimestamp;
                     normalized.sourceConversationId = session.conversationID;
                     events.Add(normalized);
+
+                    measurementChanges.Add((
+                        null,
+                        CloneEvent(normalized),
+                        "created"
+                    ));
+
                     added++;
                 }
 
@@ -872,6 +880,8 @@ Return only the event-operation JSON.";
                         continue;
                     }
 
+                    SocialEvent beforeUpdate = CloneEvent(existing);
+
                     if (!TryApplyUpdatePatch(existing, proposal, now, validNpcNames, out bool changed, out string reason))
                     {
                         Debug.LogWarning($"[EVENTS] Ignoring invalid update for {proposal.eventId}: {reason}");
@@ -884,6 +894,13 @@ Return only the event-operation JSON.";
                     existing.status = IsComplete(existing) ? "planned" : "pending";
                     existing.lastUpdatedGameTimestamp = gameTimestamp;
                     existing.sourceConversationId = session.conversationID;
+
+                    measurementChanges.Add((
+                        beforeUpdate,
+                        CloneEvent(existing),
+                        "updated"
+                    ));
+
                     updated++;
                 }
 
@@ -893,6 +910,19 @@ Return only the event-operation JSON.";
             if (added > 0 || updated > 0)
             {
                 SaveEventsSnapshot(snapshotToSave);
+
+                foreach (var change in measurementChanges)
+                {
+                    MeasurementLogger.Instance?.LogEventChange(
+                        change.before,
+                        change.after,
+                        change.changeType,
+                        session.conversationID
+                    );
+                }
+
+                MeasurementLogger.Instance?.WriteEventSnapshot(snapshotToSave);
+
                 Debug.Log($"[EVENTS] {session.conversationID}: added={added}, updated={updated}. Registry: {eventFilePath}");
             }
         }

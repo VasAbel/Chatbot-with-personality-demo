@@ -51,6 +51,13 @@ public class MeasurementLogger : MonoBehaviour
             "measurement_daily_schedules.csv",
             "date,dayOfWeek,npc,hour0,hour1,hour2,hour3,hour4,hour5,hour6,hour7,hour8,hour9,hour10,hour11,hour12,hour13,hour14,hour15,hour16,hour17,hour18,hour19,hour20,hour21,hour22,hour23"
         );
+
+        EnsureFile(
+            "measurement_event_changes.csv",
+            "date,time,day,hour,eventId,changeType,conversationId,previousStatus,status,previousParticipantCount,participantCount,previousKnownByCount,knownByCount,organizerCount,attendeeCount,isMultiPerson,eventDate,eventHour,placeId,organizers,attendees,knownBy,description"
+        );
+
+        EnsureEventSnapshotFile();
     }
 
     private void EnsureFile(string fileName, string header)
@@ -266,4 +273,174 @@ public class MeasurementLogger : MonoBehaviour
             )
         );
     }
+
+    private const string EventSnapshotFileName = "measurement_events_snapshot.csv";
+
+    private void EnsureEventSnapshotFile()
+    {
+        string path = Path.Combine(basePath, EventSnapshotFileName);
+
+        if (!File.Exists(path))
+        {
+            File.WriteAllText(
+                path,
+                "eventId,createdDate,createdGameTimestamp,lastUpdatedGameTimestamp,lastSourceConversationId,status,eventDate,eventHour,placeId,participantCount,organizerCount,attendeeCount,knownByCount,isMultiPerson,organizers,attendees,knownBy,description\n"
+            );
+        }
+    }
+
+    private static int ParticipantCount(SocialEvent socialEvent)
+    {
+        if (socialEvent == null)
+            return 0;
+
+        return (socialEvent.organizers ?? new List<string>())
+            .Concat(socialEvent.attendees ?? new List<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    private static int KnownByCount(SocialEvent socialEvent)
+    {
+        return socialEvent?.knownBy?
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count() ?? 0;
+    }
+
+    private static int OrganizerCount(SocialEvent socialEvent)
+    {
+        return socialEvent?.organizers?
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count() ?? 0;
+    }
+
+    private static int AttendeeCount(SocialEvent socialEvent)
+    {
+        return socialEvent?.attendees?
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count() ?? 0;
+    }
+
+    private static string JoinNames(IEnumerable<string> names)
+    {
+        if (names == null)
+            return "";
+
+        return string.Join("; ",
+            names
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+        );
+    }
+
+    private static string ExtractDate(string timestamp)
+    {
+        if (string.IsNullOrWhiteSpace(timestamp))
+            return "";
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            timestamp,
+            @"\d{4}-\d{2}-\d{2}"
+        );
+
+        return match.Success ? match.Value : "";
+    }
+
+    public void LogEventChange(
+        SocialEvent previousEvent,
+        SocialEvent currentEvent,
+        string changeType,
+        string conversationId)
+    {
+        if (currentEvent == null)
+            return;
+
+        int previousParticipantCount = ParticipantCount(previousEvent);
+        int participantCount = ParticipantCount(currentEvent);
+        int previousKnownByCount = KnownByCount(previousEvent);
+        int knownByCount = KnownByCount(currentEvent);
+
+        Append(
+            "measurement_event_changes.csv",
+            string.Join(",",
+                Csv(Date()),
+                Csv(Time()),
+                Day(),
+                Hour(),
+                Csv(currentEvent.eventId),
+                Csv(changeType),
+                Csv(conversationId),
+                Csv(previousEvent?.status ?? ""),
+                Csv(currentEvent.status ?? ""),
+                previousParticipantCount,
+                participantCount,
+                previousKnownByCount,
+                knownByCount,
+                OrganizerCount(currentEvent),
+                AttendeeCount(currentEvent),
+                participantCount > 2 ? 1 : 0,
+                Csv(currentEvent.date ?? ""),
+                currentEvent.hour.HasValue ? currentEvent.hour.Value.ToString() : "",
+                Csv(currentEvent.placeId ?? ""),
+                Csv(JoinNames(currentEvent.organizers)),
+                Csv(JoinNames(currentEvent.attendees)),
+                Csv(JoinNames(currentEvent.knownBy)),
+                Csv(currentEvent.description ?? "")
+            )
+        );
+    }
+
+    public void WriteEventSnapshot(IReadOnlyList<SocialEvent> events)
+    {
+        EnsureEventSnapshotFile();
+
+        string path = Path.Combine(basePath, EventSnapshotFileName);
+
+        var lines = new List<string>
+        {
+            "eventId,createdDate,createdGameTimestamp,lastUpdatedGameTimestamp,lastSourceConversationId,status,eventDate,eventHour,placeId,participantCount,organizerCount,attendeeCount,knownByCount,isMultiPerson,organizers,attendees,knownBy,description"
+        };
+
+        foreach (SocialEvent socialEvent in (events ?? Array.Empty<SocialEvent>())
+            .Where(e => e != null)
+            .OrderBy(e => e.eventId))
+        {
+            int participantCount = ParticipantCount(socialEvent);
+
+            lines.Add(
+                string.Join(",",
+                    Csv(socialEvent.eventId),
+                    Csv(ExtractDate(socialEvent.createdGameTimestamp)),
+                    Csv(socialEvent.createdGameTimestamp ?? ""),
+                    Csv(socialEvent.lastUpdatedGameTimestamp ?? ""),
+                    Csv(socialEvent.sourceConversationId ?? ""),
+                    Csv(socialEvent.status ?? ""),
+                    Csv(socialEvent.date ?? ""),
+                    socialEvent.hour.HasValue ? socialEvent.hour.Value.ToString() : "",
+                    Csv(socialEvent.placeId ?? ""),
+                    participantCount,
+                    OrganizerCount(socialEvent),
+                    AttendeeCount(socialEvent),
+                    KnownByCount(socialEvent),
+                    participantCount > 2 ? 1 : 0,
+                    Csv(JoinNames(socialEvent.organizers)),
+                    Csv(JoinNames(socialEvent.attendees)),
+                    Csv(JoinNames(socialEvent.knownBy)),
+                    Csv(socialEvent.description ?? "")
+                )
+            );
+        }
+
+        File.WriteAllLines(path, lines);
+    }
+
 }
