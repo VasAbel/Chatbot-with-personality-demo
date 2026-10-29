@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using OpenAI;
 using UnityEngine;
@@ -11,9 +12,156 @@ using UnityEngine;
 /// </summary>
 public class GptClient : ChatClient
 {
+    public enum ModelChoice
+    {
+        Gpt4oMini,
+        Gpt6Luna,
+        Gpt61Terra,
+        Gpt61Sol
+    }
+
+    private sealed class ModelProfile
+    {
+        public string ModelId { get; }
+        public string ReasoningEffort { get; }
+        public bool UseLegacySamplingParameters { get; }
+
+        public ModelProfile(
+            string modelId,
+            string reasoningEffort,
+            bool useLegacySamplingParameters)
+        {
+            ModelId = modelId;
+            ReasoningEffort = reasoningEffort;
+            UseLegacySamplingParameters = useLegacySamplingParameters;
+        }
+    }
+
+    [Header("Model experiment")]
+    [SerializeField] private ModelChoice selectedModel = ModelChoice.Gpt4oMini;
+
+    public string SelectedModelId => GetModelProfile().ModelId;
+
     private OpenAIApi openAIApi;
     private readonly List<ChatMessage> conversationHistory = new List<ChatMessage>();
     private string apiKey = "";
+
+    private void Awake()
+    {
+        SimulationRunContext.Initialize(SelectedModelId);
+    }
+
+    private ModelProfile GetModelProfile()
+    {
+        switch (selectedModel)
+        {
+            case ModelChoice.Gpt6Luna:
+                return new ModelProfile(
+                    "gpt-6-luna",
+                    "none",
+                    useLegacySamplingParameters: false
+                );
+
+            case ModelChoice.Gpt61Terra:
+                return new ModelProfile(
+                    "gpt-6.1-terra",
+                    "none",
+                    useLegacySamplingParameters: false
+                );
+
+            case ModelChoice.Gpt61Sol:
+                return new ModelProfile(
+                    "gpt-6.1-sol",
+                    "low",
+                    useLegacySamplingParameters: false
+                );
+
+            default:
+                return new ModelProfile(
+                    "gpt-4o-mini-2024-07-18",
+                    reasoningEffort: null,
+                    useLegacySamplingParameters: true
+                );
+        }
+    }
+
+    private void ApplyModelSettings(
+        CreateChatCompletionRequest request,
+        int maxTokens,
+        bool jsonRequest)
+    {
+        ModelProfile profile = GetModelProfile();
+        request.Model = profile.ModelId;
+
+        if (profile.UseLegacySamplingParameters)
+        {
+            request.MaxTokens = maxTokens;
+
+            if (jsonRequest)
+            {
+                request.Temperature = 0.2f;
+                request.PresencePenalty = 0;
+                request.FrequencyPenalty = 0;
+            }
+            else
+            {
+                request.PresencePenalty = 1;
+                request.FrequencyPenalty = 1;
+            }
+
+            return;
+        }
+
+        // Newer model families use max_completion_tokens rather than the older max_tokens
+        // field. The installed Unity OpenAI package may or may not expose that property,
+        // so set it when available and otherwise leave the API default instead of sending
+        // a potentially incompatible legacy token-limit field.
+        TrySetOptionalProperty(request, "MaxCompletionTokens", maxTokens);
+
+        if (!string.IsNullOrWhiteSpace(profile.ReasoningEffort))
+            TrySetOptionalProperty(request, "ReasoningEffort", profile.ReasoningEffort);
+    }
+
+    private static void TrySetOptionalProperty(
+        object target,
+        string propertyName,
+        object value)
+    {
+        if (target == null)
+            return;
+
+        PropertyInfo property = target.GetType().GetProperty(
+            propertyName,
+            BindingFlags.Instance | BindingFlags.Public
+        );
+
+        if (property == null || !property.CanWrite)
+            return;
+
+        try
+        {
+            Type targetType = Nullable.GetUnderlyingType(property.PropertyType)
+                ?? property.PropertyType;
+
+            object converted;
+            if (targetType.IsEnum && value is string enumText)
+            {
+                converted = Enum.Parse(targetType, enumText, ignoreCase: true);
+            }
+            else
+            {
+                converted = Convert.ChangeType(value, targetType);
+            }
+
+            property.SetValue(target, converted);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning(
+                $"Could not set optional OpenAI request property '{propertyName}': {ex.Message}"
+            );
+        }
+    }
 
     private void EnsureClientInitialized()
     {
@@ -85,12 +233,14 @@ public class GptClient : ChatClient
 
         var request = new CreateChatCompletionRequest
         {
-            Model = "gpt-4o-mini",
-            Messages = conversationHistory,
-            MaxTokens = 120,
-            PresencePenalty = 1,
-            FrequencyPenalty = 1,
+            Messages = conversationHistory
         };
+
+        ApplyModelSettings(
+            request,
+            maxTokens: 120,
+            jsonRequest: false
+        );
 
         try
         {
@@ -113,7 +263,7 @@ public class GptClient : ChatClient
         }
         catch (Exception ex)
         {
-            Debug.LogError($"LLM conversation request failed: {ex.Message}");
+            Debug.LogError($"LLM conversation request failed on {SelectedModelId}: {ex.Message}");
             throw;
         }
     }
@@ -134,18 +284,19 @@ public class GptClient : ChatClient
 
         var request = new CreateChatCompletionRequest
         {
-            Model = "gpt-4o-mini",
             Messages = new List<ChatMessage>
             {
                 new ChatMessage { Role = "system", Content = system },
                 new ChatMessage { Role = "user", Content = user }
             },
-            MaxTokens = maxTokens,
-            Temperature = 0.2f,
-            PresencePenalty = 0,
-            FrequencyPenalty = 0,
             ResponseFormat = new ResponseFormat { Type = "json_object" }
         };
+
+        ApplyModelSettings(
+            request,
+            maxTokens,
+            jsonRequest: true
+        );
 
         try
         {
@@ -160,7 +311,7 @@ public class GptClient : ChatClient
         }
         catch (Exception ex)
         {
-            Debug.LogWarning($"JSON request failed: {ex.Message}. Returning caller-provided fallback JSON.");
+            Debug.LogWarning($"JSON request failed on {SelectedModelId}: {ex.Message}. Returning caller-provided fallback JSON.");
         }
 
         return fallbackJson;

@@ -93,6 +93,14 @@ public class ConversationManager : MonoBehaviour
         return true;
     }
 
+    public bool IsUserConversationActiveWith(NPC npc)
+    {
+        return npc != null &&
+               activeConversations.Values.Any(session =>
+                   session.IsAuthoritativeUserConversation &&
+                   session.Participants.Contains(npc));
+    }
+
     private bool TryStartSession(ConversationSession session)
     {
         if (session == null)
@@ -119,8 +127,14 @@ public class ConversationManager : MonoBehaviour
 
     private async Task RunConversationAsync(ConversationSession session)
     {
+        string conversationLogDirectory = Path.Combine(
+            SimulationRunContext.RunDirectory,
+            "Conversations"
+        );
+        Directory.CreateDirectory(conversationLogDirectory);
+
         string logFilePath = Path.Combine(
-            Application.persistentDataPath,
+            conversationLogDirectory,
             $"{session.conversationID}.txt"
         );
 

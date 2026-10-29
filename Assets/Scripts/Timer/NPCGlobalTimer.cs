@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public class NPCGlobalTimer : MonoBehaviour
@@ -11,6 +12,13 @@ public class NPCGlobalTimer : MonoBehaviour
     [SerializeField] private int startMonth = 1;
     [SerializeField] private int startDay = 1;
     [SerializeField] private int startHour = 8;
+
+    [Header("Automatic experiment stop")]
+    [SerializeField] private bool stopAutomatically = true;
+    [SerializeField] private int stopYear = 2026;
+    [SerializeField] private int stopMonth = 1;
+    [SerializeField] private int stopDay = 15;
+    [SerializeField] private int stopHour = 0;
 
     private float timer;
     private DateTime currentDateTime;
@@ -33,6 +41,13 @@ public class NPCGlobalTimer : MonoBehaviour
 
         timer = 0f;
         currentDateTime = currentDateTime.AddHours(1);
+
+        if (HasReachedAutomaticStop())
+        {
+            StopSimulation();
+            return;
+        }
+
         NotifySchedules();
     }
 
@@ -45,6 +60,62 @@ public class NPCGlobalTimer : MonoBehaviour
     public void UnregisterSchedule(NpcScheduleController schedule)
     {
         registeredSchedules.Remove(schedule);
+    }
+
+    private bool HasReachedAutomaticStop()
+    {
+        if (!stopAutomatically)
+            return false;
+
+        DateTime stopDateTime = new DateTime(
+            stopYear,
+            stopMonth,
+            stopDay,
+            stopHour,
+            0,
+            0
+        );
+
+        return currentDateTime >= stopDateTime;
+    }
+
+    private void StopSimulation()
+    {
+        Debug.Log(
+            $"[Simulation Complete] Reached automatic stop time: {GetFullTimestamp()}. " +
+            "Stopping the simulation before this hour's schedule notifications."
+        );
+
+        try
+        {
+            string markerPath = Path.Combine(
+                SimulationRunContext.RunDirectory,
+                "run_completed.txt"
+            );
+
+            File.WriteAllText(
+                markerPath,
+                $"Completed automatically at in-game time: {GetFullTimestamp()}\n" +
+                $"Real time: {DateTime.Now:O}\n"
+            );
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning(
+                $"[Simulation Complete] Could not write completion marker: {ex.Message}"
+            );
+        }
+
+        ConversationManager conversationManager =
+            FindObjectOfType<ConversationManager>();
+
+        conversationManager?.StopAllConversations();
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     private void NotifySchedules()

@@ -5098,6 +5098,11 @@ MonoBehaviour:
   startMonth: 1
   startDay: 1
   startHour: 8
+  stopAutomatically: 1
+  stopYear: 2026
+  stopMonth: 1
+  stopDay: 15
+  stopHour: 0
 --- !u!4 &1056375555
 Transform:
   m_ObjectHideFlags: 0
@@ -6210,7 +6215,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1259602433}
   - component: {fileID: 1259602432}
-  - component: {fileID: 1259602431}
   - component: {fileID: 1259602430}
   - component: {fileID: 1259602434}
   m_Layer: 0
@@ -6235,18 +6239,6 @@ MonoBehaviour:
   client: {fileID: 1259602432}
   logMemoryDeltasToConsole: 1
   logMemoryDeltasToFile: 1
---- !u!114 &1259602431
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1259602429}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9f39576adc379c046a30b4ac05a45588, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1259602432
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6259,6 +6251,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a53a234f0436e0d4296f83577b8e042f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  selectedModel: 1
 --- !u!4 &1259602433
 Transform:
   m_ObjectHideFlags: 0

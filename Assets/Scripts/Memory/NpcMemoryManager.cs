@@ -112,7 +112,7 @@ public sealed class NpcMemoryManager
 
         if (_logToFile())
         {
-            string path = Path.Combine(Application.persistentDataPath, "memory_deltas.log");
+            string path = Path.Combine(SimulationRunContext.RunDirectory, "memory_deltas.log");
             File.AppendAllText(path, block);
         }
     }
@@ -863,7 +863,7 @@ Return ONLY the JSON object.";
 
         if (_logToFile())
         {
-            string path = Path.Combine(Application.persistentDataPath, "memory_deltas.log");
+            string path = Path.Combine(SimulationRunContext.RunDirectory, "memory_deltas.log");
             File.AppendAllText(path, block);
         }
     }
@@ -895,7 +895,7 @@ Return ONLY the JSON object.";
 
     private static void LogMemoryToFile(NPC npc)
     {
-        string logPath = Path.Combine(Application.persistentDataPath, $"{npc.getName()}_memory.txt");
+        string logPath = Path.Combine(SimulationRunContext.RunDirectory, $"{npc.getName()}_memory.txt");
 
         using (StreamWriter writer = new StreamWriter(logPath, false))
         {

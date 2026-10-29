@@ -101,7 +101,7 @@ public class SocialEventManager : MonoBehaviour
         }
 
         Instance = this;
-        eventFilePath = Path.Combine(Application.persistentDataPath, EventFileName);
+        eventFilePath = Path.Combine(SimulationRunContext.RunDirectory, EventFileName);
         LoadEvents();
     }
 

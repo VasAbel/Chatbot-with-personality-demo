@@ -24,7 +24,7 @@ public class MeasurementLogger : MonoBehaviour
         }
 
         Instance = this;
-        basePath = Application.persistentDataPath;
+        basePath = SimulationRunContext.RunDirectory;
         gameTimer = FindObjectOfType<NPCGlobalTimer>();
 
         EnsureFile(
